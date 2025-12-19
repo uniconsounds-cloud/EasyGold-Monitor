@@ -18,13 +18,19 @@ st.markdown("""
 <style>
     .block-container {
         padding-top: 0.5rem;
-        padding-bottom: 0rem;
+        padding-bottom: 2rem;
         padding-left: 0.5rem;
         padding-right: 0.5rem;
     }
     header {visibility: hidden;}
     footer {visibility: hidden;}
     .stApp { background-color: #0E1117; color: #FAFAFA; }
+    
+    /* ปรับขนาด Selectbox ให้ใหญ่กดง่าย */
+    .stSelectbox div[data-baseweb="select"] > div {
+        background-color: #1E222D;
+        color: white;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -37,11 +43,6 @@ def load_data():
     except:
         return None
 
-# --- Sidebar ---
-with st.sidebar:
-    st.header("⚙️ Settings")
-    user_input = st.text_input("Account ID", "")
-
 # --- Main Page ---
 placeholder = st.empty()
 
@@ -50,10 +51,23 @@ while True:
     
     with placeholder.container():
         if df is None:
-            st.error("Connecting...")
+            st.error("Connecting to database...")
         else:
+            # แปลง AccountID เป็น Text ให้หมด
             df['AccountID'] = df['AccountID'].astype(str)
-            target_df = df[df['AccountID'] == user_input] if user_input else df.tail(1)
+            
+            # --- 1. ส่วนเลือกพอร์ต (Account Selector) ---
+            # ดึงรายชื่อพอร์ตทั้งหมดที่มีออกมา (ไม่ซ้ำกัน)
+            all_accounts = df['AccountID'].unique().tolist()
+            
+            # สร้าง Sidebar หรือจะไว้ข้างบนก็ได้ (ผมไว้ Sidebar เพื่อประหยัดที่)
+            with st.sidebar:
+                st.header("⚙️ Settings")
+                # ใช้ Selectbox แทนการพิมพ์เอง เลือกง่ายกว่า
+                selected_account = st.selectbox("เลือกหมายเลขพอร์ต (Select Account)", all_accounts, index=0)
+            
+            # กรองข้อมูลตามที่เลือก
+            target_df = df[df['AccountID'] == selected_account]
 
             if not target_df.empty:
                 latest = target_df.iloc[-1]
@@ -64,73 +78,30 @@ while True:
                 total_lots = latest['BuyLots'] + latest['SellLots']
 
                 # =========================================================
-                # ส่วนที่ 1: Compact Header (แก้บั๊กกรอบขาว 100%)
+                # ส่วนที่ 2: Header (ราคาและ Lots)
                 # =========================================================
-                # เทคนิค: เขียน HTML ต่อกันเป็นบรรทัดเดียว ไม่เว้นวรรคบรรทัดใหม่
                 header_html = f"<div style='display: flex; justify-content: space-between; align-items: center; background-color: #1E222D; padding: 12px 15px; border-radius: 10px; margin-bottom: 5px; border: 1px solid #333;'><div style='text-align: left; line-height: 1.2;'><span style='color: #9E9E9E; font-size: 0.85rem; font-family: sans-serif;'>PRICE (Bid)</span><br><span style='color: #29B6F6; font-size: 1.5rem; font-weight: 700; font-family: sans-serif;'>${current_price:,.2f}</span></div><div style='text-align: right; line-height: 1.2;'><span style='color: #9E9E9E; font-size: 0.85rem; font-family: sans-serif;'>LOTS</span><br><span style='color: #FFA726; font-size: 1.5rem; font-weight: 700; font-family: sans-serif;'>{total_lots:.2f}</span></div></div>"
-                
                 st.markdown(header_html, unsafe_allow_html=True)
 
                 # =========================================================
-                # ส่วนที่ 2: Smart Bar Chart
+                # ส่วนที่ 3: Energy Bar (Equity & Balance)
                 # =========================================================
                 fig = go.Figure()
-                
                 if profit >= 0:
-                    # กำไร: ฟ้า(Balance) + เขียว(Profit)
-                    fig.add_trace(go.Bar(
-                        x=[balance], y=[""], orientation='h',
-                        marker_color='#0288D1', hoverinfo='none',
-                        text=f"Bal: ${balance:,.0f}", textposition='auto',
-                        textfont=dict(color='white', size=14)
-                    ))
-                    fig.add_trace(go.Bar(
-                        x=[profit], y=[""], orientation='h',
-                        marker_color='#00C853', hoverinfo='none',
-                        text=f"+${profit:,.0f}", textposition='inside',
-                        textfont=dict(color='white', size=14, weight='bold')
-                    ))
+                    fig.add_trace(go.Bar(x=[balance], y=[""], orientation='h', marker_color='#0288D1', hoverinfo='none', text=f"Bal: ${balance:,.0f}", textposition='auto', textfont=dict(color='white', size=14)))
+                    fig.add_trace(go.Bar(x=[profit], y=[""], orientation='h', marker_color='#00C853', hoverinfo='none', text=f"+${profit:,.0f}", textposition='inside', textfont=dict(color='white', size=14, weight='bold')))
                 else:
-                    # ขาดทุน: ฟ้า(Equity) + แดง(Loss)
-                    fig.add_trace(go.Bar(
-                        x=[equity], y=[""], orientation='h',
-                        marker_color='#0288D1', hoverinfo='none',
-                        text=f"Eq: ${equity:,.0f}", textposition='auto',
-                        textfont=dict(color='white', size=14)
-                    ))
-                    fig.add_trace(go.Bar(
-                        x=[abs(profit)], y=[""], orientation='h',
-                        marker_color='#D50000', hoverinfo='none',
-                        text=f"-${abs(profit):,.0f}", textposition='inside',
-                        textfont=dict(color='white', size=14)
-                    ))
+                    fig.add_trace(go.Bar(x=[equity], y=[""], orientation='h', marker_color='#0288D1', hoverinfo='none', text=f"Eq: ${equity:,.0f}", textposition='auto', textfont=dict(color='white', size=14)))
+                    fig.add_trace(go.Bar(x=[abs(profit)], y=[""], orientation='h', marker_color='#D50000', hoverinfo='none', text=f"-${abs(profit):,.0f}", textposition='inside', textfont=dict(color='white', size=14)))
 
-                # เส้น Balance
                 fig.add_vline(x=balance, line_width=2, line_color="white", opacity=0.8)
-                
-                # Equity Label
-                fig.add_annotation(
-                    x=equity, y=0,
-                    text=f"Equity: ${equity:,.2f}",
-                    showarrow=False,
-                    yshift=35,
-                    font=dict(size=18, color="white", family="Arial Black"),
-                    bgcolor="#0E1117", opacity=1
-                )
-
-                fig.update_layout(
-                    barmode='stack', showlegend=False,
-                    xaxis=dict(visible=False, range=[0, max(balance, equity) * 1.15]),
-                    yaxis=dict(visible=False),
-                    margin=dict(l=0, r=0, t=45, b=0),
-                    height=110,
-                    paper_bgcolor='#0E1117', plot_bgcolor='#0E1117'
-                )
+                fig.add_annotation(x=equity, y=0, text=f"Equity: ${equity:,.2f}", showarrow=False, yshift=35, font=dict(size=18, color="white", family="Arial Black"), bgcolor="#0E1117", opacity=1)
+                fig.update_layout(barmode='stack', showlegend=False, xaxis=dict(visible=False, range=[0, max(balance, equity) * 1.15]), yaxis=dict(visible=False), margin=dict(l=0, r=0, t=45, b=0), height=110, paper_bgcolor='#0E1117', plot_bgcolor='#0E1117')
                 
                 st.plotly_chart(fig, use_container_width=True, key=f"bar_{time.time()}")
 
                 # =========================================================
-                # ส่วนที่ 3: Bubble Chart
+                # ส่วนที่ 4: Infographic Bubble Chart (Magic Number)
                 # =========================================================
                 st.markdown("---")
                 try:
@@ -158,15 +129,27 @@ while True:
                                 xaxis=dict(showgrid=False, zeroline=False, tickfont=dict(color='white')),
                                 yaxis=dict(gridcolor='#333', tickfont=dict(color='white')),
                                 paper_bgcolor='#0E1117', plot_bgcolor='#0E1117', height=400, showlegend=False,
-                                title=dict(text="Portfolio Position", font=dict(color='white', size=14))
+                                title=dict(text="Portfolio Position (Magic No.)", font=dict(color='white', size=14))
                             )
                             st.plotly_chart(fig_b, use_container_width=True, key=f"bub_{time.time()}")
-                except:
-                    pass
+                            
+                            # =========================================================
+                            # ส่วนที่ 5: ตารางรายละเอียด (Detail Table) - คืนกลับมาแล้ว!
+                            # =========================================================
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            with st.expander("📄 กดเพื่อดูรายการออเดอร์ (Order Details)"):
+                                # จัดรูปแบบตารางให้ดูง่าย
+                                display_df = orders_df[['Symbol', 'Type', 'Volume', 'Open Price', 'Profit', 'Magic']].copy()
+                                display_df['Open Price'] = display_df['Open Price'].map('{:,.2f}'.format)
+                                display_df['Profit'] = display_df['Profit'].map('{:,.2f}'.format)
+                                display_df['Volume'] = display_df['Volume'].map('{:.2f}'.format)
+                                
+                                st.dataframe(display_df, use_container_width=True, height=300)
 
-            elif user_input:
-                st.warning(f"Not found: {user_input}")
+                except:
+                    st.info("No Active Orders")
+
             else:
-                st.info("Enter Account ID in Sidebar")
+                st.warning(f"Account {selected_account} not found.")
 
     time.sleep(5)
