@@ -44,7 +44,7 @@ def load_data():
         return None
 
 # =========================================================
-# เริ่มต้นการทำงาน (Auto Refresh System)
+# เริ่มต้นการทำงาน
 # =========================================================
 
 df = load_data()
@@ -58,7 +58,7 @@ else:
         df['AccountID'] = df['AccountID'].astype(str)
         all_accounts = df['AccountID'].unique().tolist()
         
-        # 1. ตัวเลือกพอร์ต (Account Selector)
+        # 1. ตัวเลือกพอร์ต
         if len(all_accounts) > 0:
             selected_account = st.selectbox("📌 เลือกพอร์ต (Select Account):", all_accounts, index=0)
         else:
@@ -77,25 +77,75 @@ else:
                 profit = float(latest.get('TotalProfit', 0.0))
                 total_lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
 
-                # 2. Header (Price & Lot)
-                st.markdown(f"<div style='display: flex; justify-content: space-between; align-items: center; background-color: #1E222D; padding: 12px 15px; border-radius: 10px; margin-top: 10px; margin-bottom: 5px; border: 1px solid #333;'><div style='text-align: left; line-height: 1.2;'><span style='color: #9E9E9E; font-size: 0.85rem; font-family: sans-serif;'>PRICE (Bid)</span><br><span style='color: #29B6F6; font-size: 1.5rem; font-weight: 700; font-family: sans-serif;'>${current_price:,.2f}</span></div><div style='text-align: right; line-height: 1.2;'><span style='color: #9E9E9E; font-size: 0.85rem; font-family: sans-serif;'>LOTS</span><br><span style='color: #FFA726; font-size: 1.5rem; font-weight: 700; font-family: sans-serif;'>{total_lots:.2f}</span></div></div>", unsafe_allow_html=True)
+                # 2. Header (Price & Lot) - เอา $ ออก
+                st.markdown(f"<div style='display: flex; justify-content: space-between; align-items: center; background-color: #1E222D; padding: 12px 15px; border-radius: 10px; margin-top: 10px; margin-bottom: 5px; border: 1px solid #333;'><div style='text-align: left; line-height: 1.2;'><span style='color: #9E9E9E; font-size: 0.85rem; font-family: sans-serif;'>PRICE (Bid)</span><br><span style='color: #29B6F6; font-size: 1.5rem; font-weight: 700; font-family: sans-serif;'>{current_price:,.2f}</span></div><div style='text-align: right; line-height: 1.2;'><span style='color: #9E9E9E; font-size: 0.85rem; font-family: sans-serif;'>LOTS</span><br><span style='color: #FFA726; font-size: 1.5rem; font-weight: 700; font-family: sans-serif;'>{total_lots:.2f}</span></div></div>", unsafe_allow_html=True)
 
-                # 3. Energy Bar
+                # =========================================================
+                # 3. Energy Bar (New Design)
+                # =========================================================
                 fig = go.Figure()
-                if profit >= 0:
-                    fig.add_trace(go.Bar(x=[balance], y=[""], orientation='h', marker_color='#0288D1', hoverinfo='none', text=f"Bal: ${balance:,.0f}", textposition='auto', textfont=dict(color='white', size=14)))
-                    fig.add_trace(go.Bar(x=[profit], y=[""], orientation='h', marker_color='#00C853', hoverinfo='none', text=f"+${profit:,.0f}", textposition='inside', textfont=dict(color='white', size=14, weight='bold')))
-                else:
-                    fig.add_trace(go.Bar(x=[equity], y=[""], orientation='h', marker_color='#0288D1', hoverinfo='none', text=f"Eq: ${equity:,.0f}", textposition='auto', textfont=dict(color='white', size=14)))
-                    fig.add_trace(go.Bar(x=[abs(profit)], y=[""], orientation='h', marker_color='#D50000', hoverinfo='none', text=f"-${abs(profit):,.0f}", textposition='inside', textfont=dict(color='white', size=14)))
-
-                fig.add_vline(x=balance, line_width=2, line_color="white", opacity=0.8)
-                fig.add_annotation(x=equity, y=0, text=f"Equity: ${equity:,.2f}", showarrow=False, yshift=35, font=dict(size=18, color="white", family="Arial Black"), bgcolor="#0E1117", opacity=1)
-                fig.update_layout(barmode='stack', showlegend=False, xaxis=dict(visible=False, range=[0, max(balance, equity) * 1.15]), yaxis=dict(visible=False), margin=dict(l=0, r=0, t=45, b=0), height=110, paper_bgcolor='#0E1117', plot_bgcolor='#0E1117')
                 
-                st.plotly_chart(fig, use_container_width=True)
+                # Logic การวาดกราฟ (เอา $ ออกจาก text)
+                if profit >= 0:
+                    # Balance (Blue)
+                    fig.add_trace(go.Bar(
+                        x=[balance], y=[""], orientation='h', 
+                        marker_color='#0288D1', hoverinfo='none', 
+                        text="", # ไม่ต้องโชว์ text ในแท่ง Balance เดี๋ยวไปโชว์ที่เส้นแทน
+                    ))
+                    # Profit (Green)
+                    fig.add_trace(go.Bar(
+                        x=[profit], y=[""], orientation='h', 
+                        marker_color='#00C853', hoverinfo='none', 
+                        text=f"+{profit:,.0f}", textposition='inside', 
+                        textfont=dict(color='white', size=14, weight='bold')
+                    ))
+                else:
+                    # Equity (Blue)
+                    fig.add_trace(go.Bar(
+                        x=[equity], y=[""], orientation='h', 
+                        marker_color='#0288D1', hoverinfo='none', 
+                        text=f"Eq: {equity:,.0f}", textposition='auto', 
+                        textfont=dict(color='white', size=14)
+                    ))
+                    # Loss (Red)
+                    fig.add_trace(go.Bar(
+                        x=[abs(profit)], y=[""], orientation='h', 
+                        marker_color='#D50000', hoverinfo='none', 
+                        text=f"-{abs(profit):,.0f}", textposition='inside', 
+                        textfont=dict(color='white', size=14)
+                    ))
 
-                # 4. Bubble Chart & Detail Table
+                # เส้น Balance แนวตั้ง
+                fig.add_vline(x=balance, line_width=3, line_color="white", opacity=0.9)
+                
+                # 🔥 Balance Text: ชิดขวาติดเส้นแนวตั้ง (xanchor='right')
+                fig.add_annotation(
+                    x=balance, y=0,
+                    text=f"{balance:,.2f}", # แสดงตัวเลข Balance
+                    xanchor='right',        # ให้จุดจบของข้อความอยู่ตรงเส้น
+                    xshift=-5,              # ขยับซ้ายนิดนึงไม่ให้ทับเส้น
+                    showarrow=False,
+                    font=dict(size=16, color="white", family="Arial Black"),
+                    bgcolor="rgba(0,0,0,0.3)" # พื้นหลังจางๆ ให้อ่านง่าย
+                )
+
+                # ปรับ Layout ให้เต็มจอสุดๆ และเอาเมนูออก
+                fig.update_layout(
+                    barmode='stack', 
+                    showlegend=False, 
+                    xaxis=dict(visible=False, range=[0, max(balance, equity) * 1.15]), 
+                    yaxis=dict(visible=False), 
+                    margin=dict(l=0, r=0, t=10, b=10), # ลดขอบให้เหลือ 0
+                    height=80, # ความสูงกำลังดี
+                    paper_bgcolor='#0E1117', 
+                    plot_bgcolor='#0E1117'
+                )
+                
+                # config={'displayModeBar': False} คือตัวสั่งปิดเมนู!
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
+
+                # 4. Bubble Chart
                 st.markdown("---")
                 
                 orders_str = latest.get('JSON_Data', '[]')
@@ -107,19 +157,9 @@ else:
                     if len(orders) > 0 and current_price > 0:
                         orders_df = pd.DataFrame(orders)
                         
-                        # --- 🔥 จุดที่แก้ไข (เพิ่ม s -> Symbol, t -> Type) ---
-                        orders_df.rename(columns={
-                            's': 'Symbol', 
-                            't': 'Type', 
-                            'v': 'Volume', 
-                            'p': 'Open Price', 
-                            'pl': 'Profit', 
-                            'm': 'Magic'
-                        }, inplace=True)
-                        # ----------------------------------------------------
+                        orders_df.rename(columns={'s': 'Symbol', 't': 'Type', 'v': 'Volume', 'p': 'Open Price', 'pl': 'Profit', 'm': 'Magic'}, inplace=True)
                         
                         if 'Magic' in orders_df.columns:
-                            # Bubble Chart Calculation
                             orders_df['WeightedVal'] = orders_df['Volume'] * orders_df['Open Price']
                             magic = orders_df.groupby('Magic').agg(
                                 Lots=('Volume', 'sum'), SumW=('WeightedVal', 'sum'), Profit=('Profit', 'sum')
@@ -141,9 +181,9 @@ else:
                                 paper_bgcolor='#0E1117', plot_bgcolor='#0E1117', height=400, showlegend=False,
                                 title=dict(text="Portfolio Position", font=dict(color='white', size=14))
                             )
-                            st.plotly_chart(fig_b, use_container_width=True)
+                            # ปิดเมนูของกราฟ Bubble ด้วยเหมือนกัน
+                            st.plotly_chart(fig_b, use_container_width=True, config={'displayModeBar': False})
                             
-                            # Detail Table
                             st.markdown("<br>", unsafe_allow_html=True)
                             with st.expander("📄 ดูรายการออเดอร์ (Order Details)"):
                                 display_df = orders_df[['Symbol', 'Type', 'Volume', 'Open Price', 'Profit', 'Magic']].copy()
@@ -163,6 +203,5 @@ else:
     except Exception as main_e:
         st.error(f"System Error: {main_e}")
 
-# Refresh System
 time.sleep(5)
 st.rerun()
