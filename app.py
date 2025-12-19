@@ -77,10 +77,9 @@ else:
                 profit = float(latest.get('TotalProfit', 0.0))
                 total_lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
 
-                # Font Setting (ใช้ตัวแปรนี้เพื่อคุม Font ให้เหมือนกันทั้งแอป)
                 common_font = "Arial, sans-serif"
 
-                # 2. Header (Price & Lot) - เอา $ ออก
+                # 2. Header (Price & Lot)
                 st.markdown(f"""
                 <div style='display: flex; justify-content: space-between; align-items: center; background-color: #1E222D; padding: 12px 15px; border-radius: 10px; margin-top: 10px; margin-bottom: 5px; border: 1px solid #333;'>
                     <div style='text-align: left; line-height: 1.2;'>
@@ -95,32 +94,30 @@ else:
                 """, unsafe_allow_html=True)
 
                 # =========================================================
-                # 3. Energy Bar (Revised Design)
+                # 3. Energy Bar (Balance on Top)
                 # =========================================================
                 fig = go.Figure()
                 
                 # Logic:
-                # - Balance: แสดงเป็น Text ชิดขวาที่เส้นแนวตั้งเสมอ
-                # - Equity/Profit: แสดง 2 บรรทัดในบาร์
+                # - ตัวหนังสือในบาร์ (Profit/Equity/Loss) ยังคงเป็น 2 บรรทัดเหมือนเดิม
+                # - ตัวหนังสือ Balance ดันขึ้นไปข้างบน +30px
                 
                 if profit >= 0:
-                    # Case กำไร: [Balance Bar (Blue)] + [Profit Bar (Green)]
+                    # Case กำไร
                     fig.add_trace(go.Bar(
                         x=[balance], y=[""], orientation='h', 
                         marker_color='#0288D1', hoverinfo='none', 
-                        text="", # ไม่ใส่ Text ในนี้ เพราะ Balance จะไปโชว์ที่เส้น
+                        text="" 
                     ))
                     fig.add_trace(go.Bar(
                         x=[profit], y=[""], orientation='h', 
                         marker_color='#00C853', hoverinfo='none', 
-                        # แสดง Profit 2 บรรทัด
                         text=f"Profit<br>{profit:,.0f}", 
                         textposition='inside', 
                         textfont=dict(color='white', size=14, family=common_font)
                     ))
                 else:
-                    # Case ขาดทุน: [Equity Bar (Blue)] + [Loss Bar (Red)]
-                    # Bar 1: Equity (แสดง 2 บรรทัดในบาร์)
+                    # Case ขาดทุน
                     fig.add_trace(go.Bar(
                         x=[equity], y=[""], orientation='h', 
                         marker_color='#0288D1', hoverinfo='none', 
@@ -128,7 +125,6 @@ else:
                         textposition='inside', 
                         textfont=dict(color='white', size=14, family=common_font)
                     ))
-                    # Bar 2: Loss
                     fig.add_trace(go.Bar(
                         x=[abs(profit)], y=[""], orientation='h', 
                         marker_color='#D50000', hoverinfo='none', 
@@ -140,27 +136,28 @@ else:
                 # เส้น Balance แนวตั้ง
                 fig.add_vline(x=balance, line_width=2, line_color="white", opacity=0.8)
                 
-                # 🔥 Balance Text: ชิดขวา (Right Align) ตรงเส้นแนวตั้ง
-                # ใช้ Annotation แปะลงไปบนกราฟเลย
+                # 🔥 Balance Text: แก้ไขใหม่ตามสั่ง
+                # 1. yshift=25 (ดันขึ้นไปข้างบน)
+                # 2. xanchor='right' (ชิดขวาเส้น)
+                # 3. Format บรรทัดเดียว
                 fig.add_annotation(
                     x=balance, y=0,
-                    text=f"Balance<br>{balance:,.0f}", # 2 บรรทัดตามคอนเซปต์
-                    xanchor='right',        # ยึดฝั่งขวาของข้อความไว้ที่เส้น
-                    xshift=-8,              # ขยับซ้ายนิดนึงไม่ให้ทับเส้นขาว
+                    yshift=25,              # ดันขึ้นไปข้างบนบาร์ 25 pixel
+                    text=f"Balance : {balance:,.0f}", 
+                    xanchor='right',        # ยึดฝั่งขวาไว้ที่เส้น
+                    xshift=-5,              # ขยับซ้ายนิดนึง
                     showarrow=False,
-                    align='right',          # จัดตัวอักษรชิดขวา
-                    font=dict(size=14, color="white", family=common_font),
-                    # bgcolor="rgba(0,0,0,0.4)" # (Optional) พื้นหลังจางๆ เผื่ออ่านยาก
+                    font=dict(size=14, color="white", family=common_font, weight="bold"),
+                    # bgcolor="rgba(0,0,0,0.5)" # (เลือกเปิดได้) ถ้าอยากให้มีพื้นหลังดำจางๆ รองหลังตัวหนังสือ
                 )
 
-                # Layout เต็มจอ
                 fig.update_layout(
                     barmode='stack', 
                     showlegend=False, 
                     xaxis=dict(visible=False, range=[0, max(balance, equity) * 1.15]), 
                     yaxis=dict(visible=False), 
-                    margin=dict(l=0, r=0, t=5, b=5), # ลดขอบสุดๆ
-                    height=90, # เพิ่มความสูงนิดนึงให้พอดี 2 บรรทัด
+                    margin=dict(l=0, r=0, t=30, b=10), # เพิ่ม t (Top margin) เป็น 30 เพื่อให้ที่ว่างตัวหนังสือ Balance
+                    height=100, 
                     paper_bgcolor='#0E1117', 
                     plot_bgcolor='#0E1117'
                 )
@@ -195,7 +192,7 @@ else:
                                 x=magic['Magic'].astype(str), y=magic['Avg'], mode='markers+text',
                                 marker=dict(size=magic['Lots'], sizemode='area', sizeref=2.*max(magic['Lots'])/(70.**2), sizemin=8, color=magic['Color'], line=dict(width=1, color='white')),
                                 text=magic['Magic'], textposition="top center", 
-                                textfont=dict(color='white', family=common_font) # ใช้ Font เดียวกัน
+                                textfont=dict(color='white', family=common_font)
                             ))
                             fig_b.update_layout(
                                 margin=dict(l=10, r=10, t=30, b=10),
