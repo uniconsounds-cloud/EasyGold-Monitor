@@ -26,9 +26,9 @@ def load_data():
     try:
         df = pd.read_csv(SHEET_URL)
         df.columns = [c.strip() for c in df.columns]
-        # ตรวจสอบว่ามีคอลัมน์ CurrentPrice หรือยัง (เผื่อ MT5 ยังไม่อัปเดต)
+        # ตรวจสอบว่ามีคอลัมน์ CurrentPrice หรือยัง
         if 'CurrentPrice' not in df.columns:
-             df['CurrentPrice'] = 0.0 # ใส่ค่าหลอกไปก่อนกัน Error
+             df['CurrentPrice'] = 0.0 
         return df
     except:
         return None
@@ -75,7 +75,7 @@ while True:
                         orders_df.rename(columns={'v': 'Volume', 'p': 'Open Price', 'pl': 'Profit', 'm': 'Magic'}, inplace=True)
 
                         if 'Magic' in orders_df.columns:
-                            # คำนวณราคาเฉลี่ยถ่วงน้ำหนัก (Weighted Average Price)
+                            # คำนวณราคาเฉลี่ยถ่วงน้ำหนัก
                             orders_df['WeightedVal'] = orders_df['Volume'] * orders_df['Open Price']
                             
                             magic_summary = orders_df.groupby('Magic').agg(
@@ -87,43 +87,39 @@ while True:
                                 Orders_Count=('Magic', 'count')
                             ).reset_index()
                             
-                            # คำนวณ Avg Price จริงๆ
                             magic_summary['Avg_Price'] = magic_summary['Sum_Weighted'] / magic_summary['Total_Lots']
-                            
-                            # กำหนดสี (เขียว/แดง)
                             magic_summary['Color'] = magic_summary['Total_Profit'].apply(lambda x: '#00C853' if x >= 0 else '#D50000')
                             
                             # --- สร้าง Infographic (Plotly Bubble Chart) ---
                             fig = go.Figure()
 
-                            # 1. เพิ่มเส้นราคาปัจจุบัน
-                            fig.add_hline(y=current_market_price, line_dash="dash", line_color="#29B6F6", annotation_text=f"Current Price: {current_market_price:.2f}", annotation_position="top right")
+                            # 1. เส้นราคาปัจจุบัน
+                            fig.add_hline(y=current_market_price, line_dash="dash", line_color="#29B6F6", annotation_text=f"Current: {current_market_price:.2f}", annotation_position="top right")
 
-                            # 2. เพิ่ม Bubble ของแต่ละ Magic Number
+                            # 2. Bubble Magic Number
                             fig.add_trace(go.Scatter(
-                                x=magic_summary['Magic'].astype(str), # แกน X เป็นแค่ชื่อกลุ่ม
-                                y=magic_summary['Avg_Price'],         # แกน Y คือราคาเฉลี่ย
+                                x=magic_summary['Magic'].astype(str), 
+                                y=magic_summary['Avg_Price'],         
                                 mode='markers+text',
                                 marker=dict(
-                                    size=magic_summary['Total_Lots'], # ขนาดตาม Lot
+                                    size=magic_summary['Total_Lots'], 
                                     sizemode='area',
-                                    sizeref=2.*max(magic_summary['Total_Lots'])/(80.**2), # ปรับสเกลขนาด
-                                    sizemin=10, # ขนาดต่ำสุด
-                                    color=magic_summary['Color'], # สีตามกำไร/ขาดทุน
-                                    line=dict(width=2, color='white') # ขอบขาวให้เด่น
+                                    sizeref=2.*max(magic_summary['Total_Lots'])/(80.**2), 
+                                    sizemin=10, 
+                                    color=magic_summary['Color'], 
+                                    line=dict(width=2, color='white') 
                                 ),
-                                text=magic_summary['Magic'], # แสดงเลข Magic ในวงกลม
+                                text=magic_summary['Magic'], 
                                 textposition="top center",
                                 textfont=dict(color='white'),
                                 hovertemplate="<b>Magic: %{x}</b><br>Avg Price: %{y:,.2f}<br>Total Lots: %{marker.size:.2f}<br>Total Profit: %{customdata:,.2f}<extra></extra>",
-                                customdata=magic_summary['Total_Profit'] # ส่งข้อมูลกำไรไปแสดงตอนเอาเมาส์ชี้
+                                customdata=magic_summary['Total_Profit']
                             ))
 
-                            # ปรับแต่ง Layout ให้สวยงามแบบ Dark Theme
                             fig.update_layout(
-                                title="Portfolio Positioning vs Market Price",
-                                xaxis=dict(title="Magic Number Groups", showgrid=False, zeroline=False, tickfont=dict(color='white')),
-                                yaxis=dict(title="Price Level", gridcolor='#333333', tickfont=dict(color='white')),
+                                title="Portfolio Positioning",
+                                xaxis=dict(title="Magic Groups", showgrid=False, zeroline=False, tickfont=dict(color='white')),
+                                yaxis=dict(title="Price", gridcolor='#333333', tickfont=dict(color='white')),
                                 plot_bgcolor='#0E1117',
                                 paper_bgcolor='#0E1117',
                                 font=dict(color='white'),
@@ -131,29 +127,29 @@ while True:
                                 showlegend=False
                             )
 
-                            st.plotly_chart(fig, use_container_width=True)
+                            # --- 🔥 แก้ไขตรงนี้ครับ (ใส่ key=time.time()) ---
+                            st.plotly_chart(fig, use_container_width=True, key=f"chart_{time.time()}")
+                            # ----------------------------------------------
 
-                            # แสดงตารางข้อมูลประกอบด้านล่าง
-                            with st.expander("📊 ดูข้อมูลตัวเลขละเอียด (Data Table)"):
+                            with st.expander("📊 Data Table"):
                                 display_df = magic_summary[['Magic', 'Orders_Count', 'Total_Lots', 'Avg_Price', 'Total_Profit']].copy()
-                                # Format ตัวเลขสวยๆ
                                 display_df['Avg_Price'] = display_df['Avg_Price'].map('{:,.2f}'.format)
                                 display_df['Total_Profit'] = display_df['Total_Profit'].map('{:,.2f}'.format)
                                 display_df['Total_Lots'] = display_df['Total_Lots'].map('{:,.2f}'.format)
                                 st.dataframe(display_df, use_container_width=True)
 
                         else:
-                            st.warning("⚠️ ข้อมูลยังไม่มี Magic Number (กรุณาอัปเดต EA)")
+                            st.warning("⚠️ ข้อมูลยังไม่มี Magic Number")
                     else:
-                        st.info("✅ พอร์ตว่าง หรือยังไม่ได้รับราคาตลาดปัจจุบัน")
+                        st.info("✅ พอร์ตว่าง หรือรอราคาตลาด")
 
                 except Exception as e:
-                    st.error(f"Error visualizing data: {e}")
-                    print(e) # ดู error ใน log
+                    # พิมพ์ error ลงหน้าเว็บเพื่อให้เห็นชัดๆ (ถ้ามี)
+                    st.error(f"Error visualization: {e}")
 
             elif user_input:
                 st.warning(f"Account not found: {user_input}")
             else:
-                st.info("Please enter Account ID in sidebar.")
+                st.info("Please enter Account ID.")
 
     time.sleep(5)
