@@ -77,72 +77,94 @@ else:
                 profit = float(latest.get('TotalProfit', 0.0))
                 total_lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
 
+                # Font Setting (ใช้ตัวแปรนี้เพื่อคุม Font ให้เหมือนกันทั้งแอป)
+                common_font = "Arial, sans-serif"
+
                 # 2. Header (Price & Lot) - เอา $ ออก
-                st.markdown(f"<div style='display: flex; justify-content: space-between; align-items: center; background-color: #1E222D; padding: 12px 15px; border-radius: 10px; margin-top: 10px; margin-bottom: 5px; border: 1px solid #333;'><div style='text-align: left; line-height: 1.2;'><span style='color: #9E9E9E; font-size: 0.85rem; font-family: sans-serif;'>PRICE (Bid)</span><br><span style='color: #29B6F6; font-size: 1.5rem; font-weight: 700; font-family: sans-serif;'>{current_price:,.2f}</span></div><div style='text-align: right; line-height: 1.2;'><span style='color: #9E9E9E; font-size: 0.85rem; font-family: sans-serif;'>LOTS</span><br><span style='color: #FFA726; font-size: 1.5rem; font-weight: 700; font-family: sans-serif;'>{total_lots:.2f}</span></div></div>", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div style='display: flex; justify-content: space-between; align-items: center; background-color: #1E222D; padding: 12px 15px; border-radius: 10px; margin-top: 10px; margin-bottom: 5px; border: 1px solid #333;'>
+                    <div style='text-align: left; line-height: 1.2;'>
+                        <span style='color: #9E9E9E; font-size: 0.85rem; font-family: {common_font};'>PRICE (Bid)</span><br>
+                        <span style='color: #29B6F6; font-size: 1.5rem; font-weight: 700; font-family: {common_font};'>{current_price:,.2f}</span>
+                    </div>
+                    <div style='text-align: right; line-height: 1.2;'>
+                        <span style='color: #9E9E9E; font-size: 0.85rem; font-family: {common_font};'>LOTS</span><br>
+                        <span style='color: #FFA726; font-size: 1.5rem; font-weight: 700; font-family: {common_font};'>{total_lots:.2f}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
                 # =========================================================
-                # 3. Energy Bar (New Design)
+                # 3. Energy Bar (Revised Design)
                 # =========================================================
                 fig = go.Figure()
                 
-                # Logic การวาดกราฟ (เอา $ ออกจาก text)
+                # Logic:
+                # - Balance: แสดงเป็น Text ชิดขวาที่เส้นแนวตั้งเสมอ
+                # - Equity/Profit: แสดง 2 บรรทัดในบาร์
+                
                 if profit >= 0:
-                    # Balance (Blue)
+                    # Case กำไร: [Balance Bar (Blue)] + [Profit Bar (Green)]
                     fig.add_trace(go.Bar(
                         x=[balance], y=[""], orientation='h', 
                         marker_color='#0288D1', hoverinfo='none', 
-                        text="", # ไม่ต้องโชว์ text ในแท่ง Balance เดี๋ยวไปโชว์ที่เส้นแทน
+                        text="", # ไม่ใส่ Text ในนี้ เพราะ Balance จะไปโชว์ที่เส้น
                     ))
-                    # Profit (Green)
                     fig.add_trace(go.Bar(
                         x=[profit], y=[""], orientation='h', 
                         marker_color='#00C853', hoverinfo='none', 
-                        text=f"+{profit:,.0f}", textposition='inside', 
-                        textfont=dict(color='white', size=14, weight='bold')
+                        # แสดง Profit 2 บรรทัด
+                        text=f"Profit<br>{profit:,.0f}", 
+                        textposition='inside', 
+                        textfont=dict(color='white', size=14, family=common_font)
                     ))
                 else:
-                    # Equity (Blue)
+                    # Case ขาดทุน: [Equity Bar (Blue)] + [Loss Bar (Red)]
+                    # Bar 1: Equity (แสดง 2 บรรทัดในบาร์)
                     fig.add_trace(go.Bar(
                         x=[equity], y=[""], orientation='h', 
                         marker_color='#0288D1', hoverinfo='none', 
-                        text=f"Eq: {equity:,.0f}", textposition='auto', 
-                        textfont=dict(color='white', size=14)
+                        text=f"Equity<br>{equity:,.0f}", 
+                        textposition='inside', 
+                        textfont=dict(color='white', size=14, family=common_font)
                     ))
-                    # Loss (Red)
+                    # Bar 2: Loss
                     fig.add_trace(go.Bar(
                         x=[abs(profit)], y=[""], orientation='h', 
                         marker_color='#D50000', hoverinfo='none', 
-                        text=f"-{abs(profit):,.0f}", textposition='inside', 
-                        textfont=dict(color='white', size=14)
+                        text=f"Loss<br>{abs(profit):,.0f}", 
+                        textposition='inside', 
+                        textfont=dict(color='white', size=13, family=common_font)
                     ))
 
                 # เส้น Balance แนวตั้ง
-                fig.add_vline(x=balance, line_width=3, line_color="white", opacity=0.9)
+                fig.add_vline(x=balance, line_width=2, line_color="white", opacity=0.8)
                 
-                # 🔥 Balance Text: ชิดขวาติดเส้นแนวตั้ง (xanchor='right')
+                # 🔥 Balance Text: ชิดขวา (Right Align) ตรงเส้นแนวตั้ง
+                # ใช้ Annotation แปะลงไปบนกราฟเลย
                 fig.add_annotation(
                     x=balance, y=0,
-                    text=f"{balance:,.2f}", # แสดงตัวเลข Balance
-                    xanchor='right',        # ให้จุดจบของข้อความอยู่ตรงเส้น
-                    xshift=-5,              # ขยับซ้ายนิดนึงไม่ให้ทับเส้น
+                    text=f"Balance<br>{balance:,.0f}", # 2 บรรทัดตามคอนเซปต์
+                    xanchor='right',        # ยึดฝั่งขวาของข้อความไว้ที่เส้น
+                    xshift=-8,              # ขยับซ้ายนิดนึงไม่ให้ทับเส้นขาว
                     showarrow=False,
-                    font=dict(size=16, color="white", family="Arial Black"),
-                    bgcolor="rgba(0,0,0,0.3)" # พื้นหลังจางๆ ให้อ่านง่าย
+                    align='right',          # จัดตัวอักษรชิดขวา
+                    font=dict(size=14, color="white", family=common_font),
+                    # bgcolor="rgba(0,0,0,0.4)" # (Optional) พื้นหลังจางๆ เผื่ออ่านยาก
                 )
 
-                # ปรับ Layout ให้เต็มจอสุดๆ และเอาเมนูออก
+                # Layout เต็มจอ
                 fig.update_layout(
                     barmode='stack', 
                     showlegend=False, 
                     xaxis=dict(visible=False, range=[0, max(balance, equity) * 1.15]), 
                     yaxis=dict(visible=False), 
-                    margin=dict(l=0, r=0, t=10, b=10), # ลดขอบให้เหลือ 0
-                    height=80, # ความสูงกำลังดี
+                    margin=dict(l=0, r=0, t=5, b=5), # ลดขอบสุดๆ
+                    height=90, # เพิ่มความสูงนิดนึงให้พอดี 2 บรรทัด
                     paper_bgcolor='#0E1117', 
                     plot_bgcolor='#0E1117'
                 )
                 
-                # config={'displayModeBar': False} คือตัวสั่งปิดเมนู!
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
 
                 # 4. Bubble Chart
@@ -172,16 +194,16 @@ else:
                             fig_b.add_trace(go.Scatter(
                                 x=magic['Magic'].astype(str), y=magic['Avg'], mode='markers+text',
                                 marker=dict(size=magic['Lots'], sizemode='area', sizeref=2.*max(magic['Lots'])/(70.**2), sizemin=8, color=magic['Color'], line=dict(width=1, color='white')),
-                                text=magic['Magic'], textposition="top center", textfont=dict(color='white')
+                                text=magic['Magic'], textposition="top center", 
+                                textfont=dict(color='white', family=common_font) # ใช้ Font เดียวกัน
                             ))
                             fig_b.update_layout(
                                 margin=dict(l=10, r=10, t=30, b=10),
-                                xaxis=dict(showgrid=False, zeroline=False, tickfont=dict(color='white')),
-                                yaxis=dict(gridcolor='#333', tickfont=dict(color='white')),
+                                xaxis=dict(showgrid=False, zeroline=False, tickfont=dict(color='white', family=common_font)),
+                                yaxis=dict(gridcolor='#333', tickfont=dict(color='white', family=common_font)),
                                 paper_bgcolor='#0E1117', plot_bgcolor='#0E1117', height=400, showlegend=False,
-                                title=dict(text="Portfolio Position", font=dict(color='white', size=14))
+                                title=dict(text="Portfolio Position", font=dict(color='white', size=14, family=common_font))
                             )
-                            # ปิดเมนูของกราฟ Bubble ด้วยเหมือนกัน
                             st.plotly_chart(fig_b, use_container_width=True, config={'displayModeBar': False})
                             
                             st.markdown("<br>", unsafe_allow_html=True)
