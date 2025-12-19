@@ -3,7 +3,6 @@ import pandas as pd
 import json
 import time
 import plotly.graph_objects as go
-import textwrap  # <--- เพิ่มตัวนี้มาช่วยแก้ปัญหาโค้ดเยื้อง
 
 # ---------------------------------------------------------
 # 🛠 ใส่ SHEET ID ของคุณตรงนี้ 🛠
@@ -14,20 +13,17 @@ SHEET_URL = f"https://docs.google.com/spreadsheets/d/1BdkpzNz5lqECpnyc7PgC1BQMc5
 
 st.set_page_config(page_title="Mobile Monitor", page_icon="📱", layout="wide")
 
-# --- CSS ปรับแต่งพิเศษสำหรับมือถือ (ลดขอบ, จัด Font) ---
+# --- CSS ปรับแต่งพิเศษสำหรับมือถือ ---
 st.markdown("""
 <style>
-    /* ลดขอบหน้าจอให้เหลือพื้นที่มากที่สุด */
     .block-container {
         padding-top: 0.5rem;
         padding-bottom: 0rem;
         padding-left: 0.5rem;
         padding-right: 0.5rem;
     }
-    /* ซ่อน Decoration ของ Streamlit */
     header {visibility: hidden;}
     footer {visibility: hidden;}
-    /* ปรับ Dark Mode */
     .stApp { background-color: #0E1117; color: #FAFAFA; }
 </style>
 """, unsafe_allow_html=True)
@@ -68,49 +64,26 @@ while True:
                 total_lots = latest['BuyLots'] + latest['SellLots']
 
                 # =========================================================
-                # ส่วนที่ 1: Compact Header (แก้ปัญหาแสดงเป็นโค้ด)
+                # ส่วนที่ 1: Compact Header (แก้บั๊กกรอบขาว 100%)
                 # =========================================================
-                # ใช้ textwrap.dedent เพื่อลบย่อหน้าทิ้ง ทำให้แสดงผลถูกต้อง
-                header_html = f"""
-                <div style="
-                    display: flex; 
-                    justify-content: space-between; 
-                    align-items: center; 
-                    background-color: #1E222D; 
-                    padding: 12px 15px; 
-                    border-radius: 10px; 
-                    margin-bottom: 5px;
-                    border: 1px solid #333;">
-                    
-                    <div style="text-align: left; line-height: 1.2;">
-                        <span style="color: #9E9E9E; font-size: 0.85rem; font-family: sans-serif;">PRICE (Bid)</span><br>
-                        <span style="color: #29B6F6; font-size: 1.5rem; font-weight: 700; font-family: sans-serif;">${current_price:,.2f}</span>
-                    </div>
-                    
-                    <div style="text-align: right; line-height: 1.2;">
-                        <span style="color: #9E9E9E; font-size: 0.85rem; font-family: sans-serif;">LOTS</span><br>
-                        <span style="color: #FFA726; font-size: 1.5rem; font-weight: 700; font-family: sans-serif;">{total_lots:.2f}</span>
-                    </div>
-                </div>
-                """
+                # เทคนิค: เขียน HTML ต่อกันเป็นบรรทัดเดียว ไม่เว้นวรรคบรรทัดใหม่
+                header_html = f"<div style='display: flex; justify-content: space-between; align-items: center; background-color: #1E222D; padding: 12px 15px; border-radius: 10px; margin-bottom: 5px; border: 1px solid #333;'><div style='text-align: left; line-height: 1.2;'><span style='color: #9E9E9E; font-size: 0.85rem; font-family: sans-serif;'>PRICE (Bid)</span><br><span style='color: #29B6F6; font-size: 1.5rem; font-weight: 700; font-family: sans-serif;'>${current_price:,.2f}</span></div><div style='text-align: right; line-height: 1.2;'><span style='color: #9E9E9E; font-size: 0.85rem; font-family: sans-serif;'>LOTS</span><br><span style='color: #FFA726; font-size: 1.5rem; font-weight: 700; font-family: sans-serif;'>{total_lots:.2f}</span></div></div>"
+                
                 st.markdown(header_html, unsafe_allow_html=True)
 
                 # =========================================================
-                # ส่วนที่ 2: Smart Bar Chart (Equity & Profit Infographic)
+                # ส่วนที่ 2: Smart Bar Chart
                 # =========================================================
-                
                 fig = go.Figure()
                 
-                # Logic: ถ้ากำไร สีฟ้า+เขียว / ถ้าขาดทุน สีฟ้า+แดง
                 if profit >= 0:
-                    # ส่วน Balance (สีฟ้า)
+                    # กำไร: ฟ้า(Balance) + เขียว(Profit)
                     fig.add_trace(go.Bar(
                         x=[balance], y=[""], orientation='h',
                         marker_color='#0288D1', hoverinfo='none',
                         text=f"Bal: ${balance:,.0f}", textposition='auto',
                         textfont=dict(color='white', size=14)
                     ))
-                    # ส่วน Profit (สีเขียว)
                     fig.add_trace(go.Bar(
                         x=[profit], y=[""], orientation='h',
                         marker_color='#00C853', hoverinfo='none',
@@ -118,14 +91,13 @@ while True:
                         textfont=dict(color='white', size=14, weight='bold')
                     ))
                 else:
-                    # ส่วน Equity ที่เหลือ (สีฟ้า)
+                    # ขาดทุน: ฟ้า(Equity) + แดง(Loss)
                     fig.add_trace(go.Bar(
                         x=[equity], y=[""], orientation='h',
                         marker_color='#0288D1', hoverinfo='none',
                         text=f"Eq: ${equity:,.0f}", textposition='auto',
                         textfont=dict(color='white', size=14)
                     ))
-                    # ส่วน Loss (สีแดง)
                     fig.add_trace(go.Bar(
                         x=[abs(profit)], y=[""], orientation='h',
                         marker_color='#D50000', hoverinfo='none',
@@ -133,34 +105,32 @@ while True:
                         textfont=dict(color='white', size=14)
                     ))
 
-                # เส้นแนวตั้ง Balance
+                # เส้น Balance
                 fig.add_vline(x=balance, line_width=2, line_color="white", opacity=0.8)
                 
-                # ข้อความ Equity ใหญ่ๆ ลอยอยู่ตรงกลาง
+                # Equity Label
                 fig.add_annotation(
                     x=equity, y=0,
                     text=f"Equity: ${equity:,.2f}",
                     showarrow=False,
-                    yshift=35, # ขยับขึ้นไปข้างบนแท่งกราฟ
+                    yshift=35,
                     font=dict(size=18, color="white", family="Arial Black"),
                     bgcolor="#0E1117", opacity=1
                 )
 
                 fig.update_layout(
-                    barmode='stack', 
-                    showlegend=False,
-                    xaxis=dict(visible=False, range=[0, max(balance, equity) * 1.15]), # เผื่อที่ด้านขวาหน่อย
+                    barmode='stack', showlegend=False,
+                    xaxis=dict(visible=False, range=[0, max(balance, equity) * 1.15]),
                     yaxis=dict(visible=False),
                     margin=dict(l=0, r=0, t=45, b=0),
                     height=110,
-                    paper_bgcolor='#0E1117',
-                    plot_bgcolor='#0E1117'
+                    paper_bgcolor='#0E1117', plot_bgcolor='#0E1117'
                 )
                 
                 st.plotly_chart(fig, use_container_width=True, key=f"bar_{time.time()}")
 
                 # =========================================================
-                # ส่วนที่ 3: Bubble Chart (เหมือนเดิม)
+                # ส่วนที่ 3: Bubble Chart
                 # =========================================================
                 st.markdown("---")
                 try:
