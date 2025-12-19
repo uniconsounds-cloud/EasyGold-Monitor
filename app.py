@@ -26,7 +26,6 @@ st.markdown("""
     footer {visibility: hidden;}
     .stApp { background-color: #0E1117; color: #FAFAFA; }
     
-    /* ปรับแต่ง Dropdown ให้สวยและกดง่าย */
     div[data-baseweb="select"] > div {
         background-color: #1E222D;
         color: white;
@@ -35,7 +34,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ฟังก์ชันโหลดข้อมูล (ใส่ Cache เพื่อความเร็ว)
 def load_data():
     try:
         df = pd.read_csv(SHEET_URL)
@@ -46,7 +44,7 @@ def load_data():
         return None
 
 # =========================================================
-# เริ่มต้นการทำงาน (ไม่ต้องมี while True แล้ว!)
+# เริ่มต้นการทำงาน (Auto Refresh System)
 # =========================================================
 
 df = load_data()
@@ -54,44 +52,35 @@ df = load_data()
 if df is None:
     st.warning("⚠️ กำลังเชื่อมต่อฐานข้อมูล... (Connecting)")
     time.sleep(2)
-    st.rerun() # ถ้าโหลดไม่ได้ ให้รีเฟรชใหม่
+    st.rerun()
 else:
     try:
         df['AccountID'] = df['AccountID'].astype(str)
         all_accounts = df['AccountID'].unique().tolist()
         
-        # =========================================================
-        # 1. ตัวเลือกพอร์ต (Account Selector) - ไว้บนสุด
-        # =========================================================
+        # 1. ตัวเลือกพอร์ต (Account Selector)
         if len(all_accounts) > 0:
-            # การวางไว้ตรงนี้โดยไม่มี while loop จะไม่เกิด Error สีแดงแน่นอน
             selected_account = st.selectbox("📌 เลือกพอร์ต (Select Account):", all_accounts, index=0)
         else:
             st.warning("⏳ รอข้อมูลจาก MT5...")
             selected_account = None
         
-        # ถ้าเลือกพอร์ตแล้ว ให้โชว์ข้อมูล
         if selected_account:
             target_df = df[df['AccountID'] == selected_account]
 
             if not target_df.empty:
                 latest = target_df.iloc[-1]
                 
-                # ดึงค่าต่างๆ (ใส่ default 0 ป้องกัน Error)
                 current_price = float(latest.get('CurrentPrice', 0.0))
                 balance = float(latest.get('Balance', 0.0))
                 equity = float(latest.get('Equity', 0.0))
                 profit = float(latest.get('TotalProfit', 0.0))
                 total_lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
 
-                # =========================================================
                 # 2. Header (Price & Lot)
-                # =========================================================
                 st.markdown(f"<div style='display: flex; justify-content: space-between; align-items: center; background-color: #1E222D; padding: 12px 15px; border-radius: 10px; margin-top: 10px; margin-bottom: 5px; border: 1px solid #333;'><div style='text-align: left; line-height: 1.2;'><span style='color: #9E9E9E; font-size: 0.85rem; font-family: sans-serif;'>PRICE (Bid)</span><br><span style='color: #29B6F6; font-size: 1.5rem; font-weight: 700; font-family: sans-serif;'>${current_price:,.2f}</span></div><div style='text-align: right; line-height: 1.2;'><span style='color: #9E9E9E; font-size: 0.85rem; font-family: sans-serif;'>LOTS</span><br><span style='color: #FFA726; font-size: 1.5rem; font-weight: 700; font-family: sans-serif;'>{total_lots:.2f}</span></div></div>", unsafe_allow_html=True)
 
-                # =========================================================
                 # 3. Energy Bar
-                # =========================================================
                 fig = go.Figure()
                 if profit >= 0:
                     fig.add_trace(go.Bar(x=[balance], y=[""], orientation='h', marker_color='#0288D1', hoverinfo='none', text=f"Bal: ${balance:,.0f}", textposition='auto', textfont=dict(color='white', size=14)))
@@ -104,15 +93,12 @@ else:
                 fig.add_annotation(x=equity, y=0, text=f"Equity: ${equity:,.2f}", showarrow=False, yshift=35, font=dict(size=18, color="white", family="Arial Black"), bgcolor="#0E1117", opacity=1)
                 fig.update_layout(barmode='stack', showlegend=False, xaxis=dict(visible=False, range=[0, max(balance, equity) * 1.15]), yaxis=dict(visible=False), margin=dict(l=0, r=0, t=45, b=0), height=110, paper_bgcolor='#0E1117', plot_bgcolor='#0E1117')
                 
-                st.plotly_chart(fig, use_container_width=True) # ไม่ต้องใส่ Key ก็ได้ เพราะเรารันใหม่ทั้งหน้า
+                st.plotly_chart(fig, use_container_width=True)
 
-                # =========================================================
-                # 4. Bubble Chart
-                # =========================================================
+                # 4. Bubble Chart & Detail Table
                 st.markdown("---")
                 
                 orders_str = latest.get('JSON_Data', '[]')
-                # กันเหนียวกรณีข้อมูลเป็น NaN หรือว่าง
                 if pd.isna(orders_str) or orders_str == "": orders_str = '[]'
                 
                 try:
@@ -120,9 +106,20 @@ else:
                     
                     if len(orders) > 0 and current_price > 0:
                         orders_df = pd.DataFrame(orders)
-                        orders_df.rename(columns={'v': 'Volume', 'p': 'Open Price', 'pl': 'Profit', 'm': 'Magic'}, inplace=True)
+                        
+                        # --- 🔥 จุดที่แก้ไข (เพิ่ม s -> Symbol, t -> Type) ---
+                        orders_df.rename(columns={
+                            's': 'Symbol', 
+                            't': 'Type', 
+                            'v': 'Volume', 
+                            'p': 'Open Price', 
+                            'pl': 'Profit', 
+                            'm': 'Magic'
+                        }, inplace=True)
+                        # ----------------------------------------------------
                         
                         if 'Magic' in orders_df.columns:
+                            # Bubble Chart Calculation
                             orders_df['WeightedVal'] = orders_df['Volume'] * orders_df['Open Price']
                             magic = orders_df.groupby('Magic').agg(
                                 Lots=('Volume', 'sum'), SumW=('WeightedVal', 'sum'), Profit=('Profit', 'sum')
@@ -146,9 +143,7 @@ else:
                             )
                             st.plotly_chart(fig_b, use_container_width=True)
                             
-                            # =========================================================
-                            # 5. Detail Table
-                            # =========================================================
+                            # Detail Table
                             st.markdown("<br>", unsafe_allow_html=True)
                             with st.expander("📄 ดูรายการออเดอร์ (Order Details)"):
                                 display_df = orders_df[['Symbol', 'Type', 'Volume', 'Open Price', 'Profit', 'Magic']].copy()
@@ -168,8 +163,6 @@ else:
     except Exception as main_e:
         st.error(f"System Error: {main_e}")
 
-# =========================================================
-# ส่วนสำคัญ: Auto Refresh (แทน while True)
-# =========================================================
-time.sleep(5)  # รอ 5 วินาที
-st.rerun()     # สั่งรีเฟรชหน้าจอใหม่
+# Refresh System
+time.sleep(5)
+st.rerun()
