@@ -120,12 +120,10 @@ else:
                         orders_df.rename(columns={'s': 'Symbol', 't': 'Type', 'v': 'Volume', 'p': 'Open Price', 'pl': 'Profit', 'm': 'Magic'}, inplace=True)
                         
                         if 'Magic' in orders_df.columns:
-                            # คำนวณค่าต่างๆ
                             orders_df['WeightedVal'] = orders_df['Volume'] * orders_df['Open Price']
                             
-                            # Group by Magic Number
                             magic_summary = orders_df.groupby('Magic').agg(
-                                OrderType=('Type', 'first'),      # เอา Type ตัวแรกของกลุ่ม (สมมติกลุ่มนึงมีทางเดียว)
+                                OrderType=('Type', 'first'),
                                 OrderCount=('Magic', 'count'),
                                 TotalLots=('Volume', 'sum'),
                                 MinPrice=('Open Price', 'min'),
@@ -136,62 +134,78 @@ else:
                             
                             magic_summary['AvgPrice'] = magic_summary['SumWeighted'] / magic_summary['TotalLots']
                             
-                            # แบ่งข้อมูลเป็น 2 กอง: Buy Group และ Sell Group
                             buy_group = magic_summary[magic_summary['OrderType'] == 'Buy']
                             sell_group = magic_summary[magic_summary['OrderType'] == 'Sell']
 
-                            # --- วาด Bubble Chart แบบ 2 คอลัมน์ ---
+                            # --- วาด Bubble Chart ---
                             fig_b = go.Figure()
 
-                            # 1. เส้นราคาปัจจุบัน (Market Price)
-                            fig_b.add_hline(y=current_price, line_dash="dash", line_color="#29B6F6", annotation_text="Market Price", annotation_position="top left")
+                            # 1. เส้นราคาปัจจุบัน (แสดงราคาด้วย)
+                            fig_b.add_hline(
+                                y=current_price, 
+                                line_dash="dash", line_color="#29B6F6", 
+                                annotation_text=f"Market: {current_price:,.2f}", # แสดงราคาตรงนี้
+                                annotation_position="top left",
+                                annotation_font=dict(color="#29B6F6", size=12)
+                            )
 
-                            # 2. คอลัมน์ซ้าย: BUY Zone (สีเขียว)
+                            # 2. BUY Zone
                             if not buy_group.empty:
                                 fig_b.add_trace(go.Scatter(
-                                    x=["BUY Zone"] * len(buy_group), # บังคับให้อยู่แกนซ้าย
+                                    x=["BUY Zone"] * len(buy_group),
                                     y=buy_group['AvgPrice'],
                                     mode='markers+text',
                                     name='Buy',
                                     marker=dict(
                                         size=buy_group['TotalLots'], 
-                                        sizemode='area', sizeref=2.*max(magic_summary['TotalLots'])/(70.**2), sizemin=10, 
+                                        sizemode='area', sizeref=2.*max(magic_summary['TotalLots'])/(70.**2), sizemin=15, # เพิ่ม sizemin ให้อ่านตัวเลขออก
                                         color='#00C853', line=dict(width=1, color='white')
                                     ),
-                                    text=buy_group['Magic'], textposition="top center", 
-                                    textfont=dict(color='#00C853', family=common_font, weight='bold'),
-                                    # ใส่รายละเอียดใน Tooltip ตอนแตะ
+                                    # แสดงจำนวนไม้ตรงกลาง Bubble
+                                    text=buy_group['OrderCount'], 
+                                    textposition="middle center", 
+                                    textfont=dict(color='white', family=common_font, weight='bold'),
+                                    
+                                    # Tooltip: Magic, Lots, Profit, Min, Max
                                     hovertemplate=
-                                    "<b>Magic: %{text}</b><br>" +
+                                    "<b>Magic: %{customdata[0]}</b><br>" +
                                     "Type: BUY<br>" +
+                                    "Orders: %{text}<br>" +
                                     "Lots: %{marker.size:.2f}<br>" +
-                                    "Avg Price: %{y:,.2f}<br>" +
-                                    "Profit: %{customdata:,.2f}<extra></extra>",
-                                    customdata=buy_group['TotalProfit']
+                                    "Avg: %{y:,.2f}<br>" +
+                                    "Min: %{customdata[2]:,.2f}<br>" +
+                                    "Max: %{customdata[3]:,.2f}<br>" +
+                                    "Profit: %{customdata[1]:,.2f}<extra></extra>",
+                                    # ส่งข้อมูล Magic, Profit, Min, Max เข้าไปใน customdata เพื่อดึงมาแสดง
+                                    customdata=buy_group[['Magic', 'TotalProfit', 'MinPrice', 'MaxPrice']]
                                 ))
 
-                            # 3. คอลัมน์ขวา: SELL Zone (สีแดง)
+                            # 3. SELL Zone
                             if not sell_group.empty:
                                 fig_b.add_trace(go.Scatter(
-                                    x=["SELL Zone"] * len(sell_group), # บังคับให้อยู่แกนขวา
+                                    x=["SELL Zone"] * len(sell_group),
                                     y=sell_group['AvgPrice'],
                                     mode='markers+text',
                                     name='Sell',
                                     marker=dict(
                                         size=sell_group['TotalLots'], 
-                                        sizemode='area', sizeref=2.*max(magic_summary['TotalLots'])/(70.**2), sizemin=10, 
+                                        sizemode='area', sizeref=2.*max(magic_summary['TotalLots'])/(70.**2), sizemin=15, 
                                         color='#D50000', line=dict(width=1, color='white')
                                     ),
-                                    text=sell_group['Magic'], textposition="top center", 
-                                    textfont=dict(color='#D50000', family=common_font, weight='bold'),
-                                    # ใส่รายละเอียดใน Tooltip ตอนแตะ
+                                    text=sell_group['OrderCount'], # แสดงจำนวนไม้
+                                    textposition="middle center", 
+                                    textfont=dict(color='white', family=common_font, weight='bold'),
+                                    
                                     hovertemplate=
-                                    "<b>Magic: %{text}</b><br>" +
+                                    "<b>Magic: %{customdata[0]}</b><br>" +
                                     "Type: SELL<br>" +
+                                    "Orders: %{text}<br>" +
                                     "Lots: %{marker.size:.2f}<br>" +
-                                    "Avg Price: %{y:,.2f}<br>" +
-                                    "Profit: %{customdata:,.2f}<extra></extra>",
-                                    customdata=sell_group['TotalProfit']
+                                    "Avg: %{y:,.2f}<br>" +
+                                    "Min: %{customdata[2]:,.2f}<br>" +
+                                    "Max: %{customdata[3]:,.2f}<br>" +
+                                    "Profit: %{customdata[1]:,.2f}<extra></extra>",
+                                    customdata=sell_group[['Magic', 'TotalProfit', 'MinPrice', 'MaxPrice']]
                                 ))
 
                             fig_b.update_layout(
@@ -200,7 +214,7 @@ else:
                                 xaxis=dict(
                                     showgrid=False, zeroline=False, 
                                     tickfont=dict(color='white', size=14, family=common_font, weight='bold'),
-                                    side='bottom' # ชื่อคอลัมน์อยู่ด้านล่าง
+                                    side='bottom'
                                 ),
                                 yaxis=dict(
                                     title="Price Level",
@@ -211,21 +225,20 @@ else:
                             )
                             st.plotly_chart(fig_b, use_container_width=True, config={'displayModeBar': False})
                             
-                            # --- 5. ตารางสรุป (เพิ่มช่อง Type) ---
+                            # --- 5. ตารางสรุป (เพิ่มช่อง Profit) ---
                             st.markdown("<br>", unsafe_allow_html=True)
                             with st.expander("📊 ดูสรุปตาม Magic Number (Summary)", expanded=True):
                                 
-                                # เตรียมตาราง
-                                display_df = magic_summary[['Magic', 'OrderType', 'OrderCount', 'TotalLots', 'MinPrice', 'MaxPrice', 'AvgPrice']].copy()
-                                display_df.columns = ['Magic', 'Type', 'Count', 'Lots', 'Min', 'Max', 'Avg Price']
+                                # เพิ่ม TotalProfit เข้ามาในตารางแสดงผล
+                                display_df = magic_summary[['Magic', 'OrderType', 'OrderCount', 'TotalLots', 'MinPrice', 'MaxPrice', 'AvgPrice', 'TotalProfit']].copy()
+                                display_df.columns = ['Magic', 'Type', 'Count', 'Lots', 'Min', 'Max', 'Avg Price', 'Profit']
                                 
-                                # Format ตัวเลข
                                 display_df['Lots'] = display_df['Lots'].map('{:,.2f}'.format)
                                 display_df['Min'] = display_df['Min'].map('{:,.2f}'.format)
                                 display_df['Max'] = display_df['Max'].map('{:,.2f}'.format)
                                 display_df['Avg Price'] = display_df['Avg Price'].map('{:,.2f}'.format)
+                                display_df['Profit'] = display_df['Profit'].map('{:,.2f}'.format) # Format Profit
                                 
-                                # Highlight สี Type ในตาราง (Optional: Streamlit รองรับ simple highlight)
                                 def highlight_type(val):
                                     color = '#00C853' if val == 'Buy' else '#D50000'
                                     return f'color: {color}; font-weight: bold'
