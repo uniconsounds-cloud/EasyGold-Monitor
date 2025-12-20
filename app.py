@@ -13,7 +13,6 @@ SHEET_URL = f"https://docs.google.com/spreadsheets/d/1BdkpzNz5lqECpnyc7PgC1BQMc5
 
 st.set_page_config(page_title="Mobile Monitor", page_icon="📱", layout="wide")
 
-# --- CSS ---
 st.markdown("""
 <style>
     .block-container {
@@ -31,7 +30,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Session State ---
+# --- Session State Init ---
 if 'selected_magic' not in st.session_state:
     st.session_state.selected_magic = None
 
@@ -137,9 +136,7 @@ else:
                                     x=["BUY Zone"] * len(buy_group), y=buy_group['AvgPrice'], mode='markers+text', name='Buy',
                                     marker=dict(size=buy_group['TotalLots'], sizemode='area', sizeref=2.*max(magic_summary['TotalLots'])/(70.**2), sizemin=18, color='#00C853', line=dict(width=1, color='white')),
                                     text=buy_group['OrderCount'], textposition="middle center", textfont=dict(color='white', family=common_font, weight='bold'),
-                                    # 🔥 FIXED TOOLTIP 🔥
                                     hovertemplate="<b>Magic: %{customdata[0]}</b><br>Orders: %{customdata[4]}<br>Lots: %{marker.size:.2f}<br>Avg: %{y:,.2f}<br>Min: %{customdata[2]:,.2f}<br>Max: %{customdata[3]:,.2f}<br>Profit: %{customdata[1]:,.2f}<extra></extra>",
-                                    # [0]=Magic, [1]=Profit, [2]=Min, [3]=Max, [4]=Count
                                     customdata=buy_group[['Magic', 'TotalProfit', 'MinPrice', 'MaxPrice', 'OrderCount']]
                                 ))
 
@@ -149,9 +146,7 @@ else:
                                     x=["SELL Zone"] * len(sell_group), y=sell_group['AvgPrice'], mode='markers+text', name='Sell',
                                     marker=dict(size=sell_group['TotalLots'], sizemode='area', sizeref=2.*max(magic_summary['TotalLots'])/(70.**2), sizemin=18, color='#D50000', line=dict(width=1, color='white')),
                                     text=sell_group['OrderCount'], textposition="middle center", textfont=dict(color='white', family=common_font, weight='bold'),
-                                    # 🔥 FIXED TOOLTIP 🔥
                                     hovertemplate="<b>Magic: %{customdata[0]}</b><br>Orders: %{customdata[4]}<br>Lots: %{marker.size:.2f}<br>Avg: %{y:,.2f}<br>Min: %{customdata[2]:,.2f}<br>Max: %{customdata[3]:,.2f}<br>Profit: %{customdata[1]:,.2f}<extra></extra>",
-                                    # [0]=Magic, [1]=Profit, [2]=Min, [3]=Max, [4]=Count
                                     customdata=sell_group[['Magic', 'TotalProfit', 'MinPrice', 'MaxPrice', 'OrderCount']]
                                 ))
 
@@ -164,36 +159,38 @@ else:
                                 clickmode='event+select'
                             )
                             
-                            # 🔥 FIXED SELECTION LOGIC 🔥
-                            # ใช้ key แบบคงที่ เพื่อไม่ให้กราฟรีเซ็ตตัวเอง
+                            # 🔥 รับค่า Touch Event
+                            # ใช้ key คงที่ เพื่อไม่ให้กราฟรีเซ็ตตัว
                             event = st.plotly_chart(fig_b, use_container_width=True, config={'displayModeBar': False}, on_select="rerun", key="bubble_chart_static")
                             
-                            # Logic: ถ้ามีการคลิก (Selection มาใหม่) ให้จำค่า
-                            # แต่ถ้าไม่มีการคลิก (Auto Refresh) ให้ใช้ค่าเดิม ห้ามลบ
+                            # 🔥 LOGIC สำคัญ: ถ้ามีการจิ้มกราฟ ให้ไปสั่งแก้ค่า Dropdown ใน Session State
                             if event and event.selection and len(event.selection['points']) > 0:
                                 try:
-                                    # ดึงค่า Magic จาก customdata[0]
-                                    new_selected = event.selection['points'][0]['customdata'][0]
-                                    st.session_state.selected_magic = new_selected
+                                    clicked_magic = event.selection['points'][0]['customdata'][0]
+                                    # สั่งอัปเดตตัวแปรของ Dropdown โดยตรง
+                                    st.session_state["manual_select_box"] = clicked_magic
+                                    st.session_state.selected_magic = clicked_magic
                                 except:
-                                    pass # ถ้า error ไม่ต้องทำอะไร ใช้ค่าเดิม
+                                    pass
 
                             # --- 6. PRICE STRUCTURE & SYNCED DROPDOWN ---
-                            current_magic = st.session_state.selected_magic
                             magic_list = sorted(magic_summary['Magic'].unique().tolist())
                             
                             st.markdown("<br>", unsafe_allow_html=True)
                             col_sel1, col_sel2 = st.columns([1, 2])
                             with col_sel1: st.caption("Selected Magic:")
                             with col_sel2:
-                                # Sync Dropdown กับ Session State
-                                default_idx = magic_list.index(current_magic) if current_magic in magic_list else 0
-                                manual_select = st.selectbox("🔍 เจาะลึก Magic Number", magic_list, index=default_idx, key="manual_select_box")
+                                # สร้าง Dropdown โดยใช้ key="manual_select_box"
+                                # ถ้ามีการจิ้มกราฟ ค่าใน key นี้จะถูกเปลี่ยน และ Dropdown จะเปลี่ยนตามทันที
+                                manual_select = st.selectbox(
+                                    "🔍 เจาะลึก Magic Number", 
+                                    magic_list, 
+                                    key="manual_select_box"
+                                )
                                 
-                                # ถ้า User เปลี่ยน Dropdown ให้ update state
-                                if manual_select != current_magic:
-                                    st.session_state.selected_magic = manual_select
-                                    current_magic = manual_select
+                                # อัปเดตตัวแปรหลัก
+                                st.session_state.selected_magic = manual_select
+                                current_magic = manual_select
 
                             if current_magic:
                                 st.markdown(f"##### 🎯 Structure of Magic: {current_magic}")
@@ -206,13 +203,9 @@ else:
                                     avg_p = sum_w / specific_orders['Volume'].sum()
                                     
                                     fig_s = go.Figure()
-                                    # ไม้ทั้งหมด
                                     fig_s.add_trace(go.Scatter(x=[0.5]*len(specific_orders), y=specific_orders['Open Price'], mode='markers', marker=dict(symbol='line-ew', size=300, line=dict(width=1, color="rgba(255, 255, 255, 0.4)")), name='Orders', hoverinfo='y'))
-                                    # Top
                                     fig_s.add_trace(go.Scatter(x=[0.5], y=[max_p], mode='markers+text', marker=dict(symbol='line-ew', size=300, line=dict(width=4, color="#D50000")), text=[f"Top: {max_p:,.2f}"], textposition="top center", textfont=dict(color="#D50000"), name='Top'))
-                                    # Bottom
                                     fig_s.add_trace(go.Scatter(x=[0.5], y=[min_p], mode='markers+text', marker=dict(symbol='line-ew', size=300, line=dict(width=4, color="#00C853")), text=[f"Bot: {min_p:,.2f}"], textposition="bottom center", textfont=dict(color="#00C853"), name='Bottom'))
-                                    # Avg
                                     fig_s.add_trace(go.Scatter(x=[0.5], y=[avg_p], mode='markers+text', marker=dict(symbol='line-ew', size=300, line=dict(width=2, color="#FFD600")), text=[f"Avg: {avg_p:,.2f}"], textposition="middle right", textfont=dict(color="#FFD600"), name='Avg'))
 
                                     fig_s.update_layout(xaxis=dict(visible=False, range=[0, 1]), yaxis=dict(title="Price", gridcolor='#333', tickfont=dict(color='white')), margin=dict(l=40, r=40, t=30, b=20), height=300, showlegend=False, paper_bgcolor='#0E1117', plot_bgcolor='#0E1117')
