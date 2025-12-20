@@ -13,7 +13,6 @@ SHEET_URL = f"https://docs.google.com/spreadsheets/d/1BdkpzNz5lqECpnyc7PgC1BQMc5
 
 st.set_page_config(page_title="Mobile Monitor", page_icon="📱", layout="wide")
 
-# --- CSS ปรับแต่งพิเศษสำหรับมือถือ ---
 st.markdown("""
 <style>
     .block-container {
@@ -78,7 +77,7 @@ else:
                 total_lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
                 common_font = "Arial, sans-serif"
 
-                # 2. Header (Price & Lot)
+                # 2. Header
                 st.markdown(f"""
                 <div style='display: flex; justify-content: space-between; align-items: center; background-color: #1E222D; padding: 12px 15px; border-radius: 10px; margin-top: 10px; margin-bottom: 5px; border: 1px solid #333;'>
                     <div style='text-align: left; line-height: 1.2;'>
@@ -106,9 +105,8 @@ else:
                 fig.update_layout(barmode='stack', showlegend=False, xaxis=dict(visible=False, range=[0, max(balance, equity) * 1.15]), yaxis=dict(visible=False), margin=dict(l=0, r=0, t=30, b=10), height=100, paper_bgcolor='#0E1117', plot_bgcolor='#0E1117')
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
 
-                # 4. Bubble Chart & Summary Table (Revised)
+                # --- 4. DATA PREPARATION ---
                 st.markdown("---")
-                
                 orders_str = latest.get('JSON_Data', '[]')
                 if pd.isna(orders_str) or orders_str == "": orders_str = '[]'
                 
@@ -121,128 +119,141 @@ else:
                         
                         if 'Magic' in orders_df.columns:
                             orders_df['WeightedVal'] = orders_df['Volume'] * orders_df['Open Price']
-                            
                             magic_summary = orders_df.groupby('Magic').agg(
-                                OrderType=('Type', 'first'),
-                                OrderCount=('Magic', 'count'),
-                                TotalLots=('Volume', 'sum'),
-                                MinPrice=('Open Price', 'min'),
-                                MaxPrice=('Open Price', 'max'),
-                                SumWeighted=('WeightedVal', 'sum'),
-                                TotalProfit=('Profit', 'sum')
+                                OrderType=('Type', 'first'), OrderCount=('Magic', 'count'), TotalLots=('Volume', 'sum'),
+                                MinPrice=('Open Price', 'min'), MaxPrice=('Open Price', 'max'),
+                                SumWeighted=('WeightedVal', 'sum'), TotalProfit=('Profit', 'sum')
                             ).reset_index()
-                            
                             magic_summary['AvgPrice'] = magic_summary['SumWeighted'] / magic_summary['TotalLots']
                             
                             buy_group = magic_summary[magic_summary['OrderType'] == 'Buy']
                             sell_group = magic_summary[magic_summary['OrderType'] == 'Sell']
 
-                            # --- วาด Bubble Chart ---
+                            # --- 5. BUBBLE CHART (With Selection) ---
                             fig_b = go.Figure()
 
-                            # 1. เส้นราคาปัจจุบัน (แสดงราคาด้วย)
-                            fig_b.add_hline(
-                                y=current_price, 
-                                line_dash="dash", line_color="#29B6F6", 
-                                annotation_text=f"Market: {current_price:,.2f}", # แสดงราคาตรงนี้
-                                annotation_position="top left",
-                                annotation_font=dict(color="#29B6F6", size=12)
-                            )
+                            fig_b.add_hline(y=current_price, line_dash="dash", line_color="#29B6F6", 
+                                          annotation_text=f"Market: {current_price:,.2f}", annotation_position="top left", annotation_font=dict(color="#29B6F6", size=12))
 
-                            # 2. BUY Zone
+                            # BUY BUBBLES
                             if not buy_group.empty:
                                 fig_b.add_trace(go.Scatter(
-                                    x=["BUY Zone"] * len(buy_group),
-                                    y=buy_group['AvgPrice'],
-                                    mode='markers+text',
-                                    name='Buy',
-                                    marker=dict(
-                                        size=buy_group['TotalLots'], 
-                                        sizemode='area', sizeref=2.*max(magic_summary['TotalLots'])/(70.**2), sizemin=15, # เพิ่ม sizemin ให้อ่านตัวเลขออก
-                                        color='#00C853', line=dict(width=1, color='white')
-                                    ),
-                                    # แสดงจำนวนไม้ตรงกลาง Bubble
-                                    text=buy_group['OrderCount'], 
-                                    textposition="middle center", 
-                                    textfont=dict(color='white', family=common_font, weight='bold'),
-                                    
-                                    # Tooltip: Magic, Lots, Profit, Min, Max
-                                    hovertemplate=
-                                    "<b>Magic: %{customdata[0]}</b><br>" +
-                                    "Type: BUY<br>" +
-                                    "Orders: %{text}<br>" +
-                                    "Lots: %{marker.size:.2f}<br>" +
-                                    "Avg: %{y:,.2f}<br>" +
-                                    "Min: %{customdata[2]:,.2f}<br>" +
-                                    "Max: %{customdata[3]:,.2f}<br>" +
-                                    "Profit: %{customdata[1]:,.2f}<extra></extra>",
-                                    # ส่งข้อมูล Magic, Profit, Min, Max เข้าไปใน customdata เพื่อดึงมาแสดง
+                                    x=["BUY Zone"] * len(buy_group), y=buy_group['AvgPrice'], mode='markers+text', name='Buy',
+                                    marker=dict(size=buy_group['TotalLots'], sizemode='area', sizeref=2.*max(magic_summary['TotalLots'])/(70.**2), sizemin=15, color='#00C853', line=dict(width=1, color='white')),
+                                    text=buy_group['OrderCount'], textposition="middle center", textfont=dict(color='white', family=common_font, weight='bold'),
+                                    hovertemplate="<b>Magic: %{customdata[0]}</b><br>Type: BUY<br>Orders: %{text}<br>Lots: %{marker.size:.2f}<br>Avg: %{y:,.2f}<br>Profit: %{customdata[1]:,.2f}<extra></extra>",
                                     customdata=buy_group[['Magic', 'TotalProfit', 'MinPrice', 'MaxPrice']]
                                 ))
 
-                            # 3. SELL Zone
+                            # SELL BUBBLES
                             if not sell_group.empty:
                                 fig_b.add_trace(go.Scatter(
-                                    x=["SELL Zone"] * len(sell_group),
-                                    y=sell_group['AvgPrice'],
-                                    mode='markers+text',
-                                    name='Sell',
-                                    marker=dict(
-                                        size=sell_group['TotalLots'], 
-                                        sizemode='area', sizeref=2.*max(magic_summary['TotalLots'])/(70.**2), sizemin=15, 
-                                        color='#D50000', line=dict(width=1, color='white')
-                                    ),
-                                    text=sell_group['OrderCount'], # แสดงจำนวนไม้
-                                    textposition="middle center", 
-                                    textfont=dict(color='white', family=common_font, weight='bold'),
-                                    
-                                    hovertemplate=
-                                    "<b>Magic: %{customdata[0]}</b><br>" +
-                                    "Type: SELL<br>" +
-                                    "Orders: %{text}<br>" +
-                                    "Lots: %{marker.size:.2f}<br>" +
-                                    "Avg: %{y:,.2f}<br>" +
-                                    "Min: %{customdata[2]:,.2f}<br>" +
-                                    "Max: %{customdata[3]:,.2f}<br>" +
-                                    "Profit: %{customdata[1]:,.2f}<extra></extra>",
+                                    x=["SELL Zone"] * len(sell_group), y=sell_group['AvgPrice'], mode='markers+text', name='Sell',
+                                    marker=dict(size=sell_group['TotalLots'], sizemode='area', sizeref=2.*max(magic_summary['TotalLots'])/(70.**2), sizemin=15, color='#D50000', line=dict(width=1, color='white')),
+                                    text=sell_group['OrderCount'], textposition="middle center", textfont=dict(color='white', family=common_font, weight='bold'),
+                                    hovertemplate="<b>Magic: %{customdata[0]}</b><br>Type: SELL<br>Orders: %{text}<br>Lots: %{marker.size:.2f}<br>Avg: %{y:,.2f}<br>Profit: %{customdata[1]:,.2f}<extra></extra>",
                                     customdata=sell_group[['Magic', 'TotalProfit', 'MinPrice', 'MaxPrice']]
                                 ))
 
                             fig_b.update_layout(
-                                title=dict(text="Portfolio Split (Buy vs Sell)", font=dict(color='white', size=14, family=common_font)),
+                                title=dict(text="Portfolio Split (Tap to Inspect)", font=dict(color='white', size=14, family=common_font)),
                                 margin=dict(l=20, r=20, t=40, b=20),
-                                xaxis=dict(
-                                    showgrid=False, zeroline=False, 
-                                    tickfont=dict(color='white', size=14, family=common_font, weight='bold'),
-                                    side='bottom'
-                                ),
-                                yaxis=dict(
-                                    title="Price Level",
-                                    gridcolor='#333', 
-                                    tickfont=dict(color='white', family=common_font)
-                                ),
-                                paper_bgcolor='#0E1117', plot_bgcolor='#0E1117', height=500, showlegend=False
+                                xaxis=dict(showgrid=False, zeroline=False, tickfont=dict(color='white', size=14, family=common_font, weight='bold'), side='bottom'),
+                                yaxis=dict(title="Price Level", gridcolor='#333', tickfont=dict(color='white', family=common_font)),
+                                paper_bgcolor='#0E1117', plot_bgcolor='#0E1117', height=450, showlegend=False,
+                                clickmode='event+select' # เปิดโหมดคลิก
                             )
-                            st.plotly_chart(fig_b, use_container_width=True, config={'displayModeBar': False})
                             
-                            # --- 5. ตารางสรุป (เพิ่มช่อง Profit) ---
+                            # 🔥 INTERACTIVE SELECTION 🔥
+                            # ใช้ on_select="rerun" เพื่อรับค่าการคลิก
+                            event = st.plotly_chart(fig_b, use_container_width=True, config={'displayModeBar': False}, on_select="rerun")
+                            
+                            selected_magic = None
+                            
+                            # 1. ลองดึงจากการคลิก Bubble
+                            if event and event.selection and len(event.selection['points']) > 0:
+                                try:
+                                    # ดึงค่า Magic จาก customdata[0] ที่เราใส่ไว้
+                                    selected_magic = event.selection['points'][0]['customdata'][0]
+                                except:
+                                    pass
+                            
+                            # 2. Backup: Dropdown เลือก Magic (เผื่อจิ้มยาก)
                             st.markdown("<br>", unsafe_allow_html=True)
-                            with st.expander("📊 ดูสรุปตาม Magic Number (Summary)", expanded=True):
+                            col_sel1, col_sel2 = st.columns([1, 2])
+                            with col_sel1:
+                                st.caption("หรือเลือกจากรายการ:")
+                            with col_sel2:
+                                # ถ้ามีการคลิกกราฟ ให้ค่า default เป็นค่าที่คลิก
+                                default_idx = 0
+                                magic_list = sorted(magic_summary['Magic'].unique().tolist())
+                                if selected_magic in magic_list:
+                                    default_idx = magic_list.index(selected_magic)
                                 
-                                # เพิ่ม TotalProfit เข้ามาในตารางแสดงผล
+                                manual_select = st.selectbox("🔍 เจาะลึก Magic Number", magic_list, index=default_idx, key=f"sel_{time.time()}")
+                                if manual_select: selected_magic = manual_select
+
+                            # --- 6. PRICE STRUCTURE CHART (กราฟเส้นราคา) ---
+                            if selected_magic:
+                                st.markdown(f"##### 🎯 Structure of Magic: {selected_magic}")
+                                
+                                # กรองเฉพาะ Magic ที่เลือก
+                                specific_orders = orders_df[orders_df['Magic'] == selected_magic].copy()
+                                
+                                if not specific_orders.empty:
+                                    # คำนวณค่าสำคัญ
+                                    max_p = specific_orders['Open Price'].max()
+                                    min_p = specific_orders['Open Price'].min()
+                                    
+                                    # คำนวณ Avg (Weighted)
+                                    sum_w = (specific_orders['Volume'] * specific_orders['Open Price']).sum()
+                                    sum_vol = specific_orders['Volume'].sum()
+                                    avg_p = sum_w / sum_vol if sum_vol > 0 else 0
+                                    
+                                    # สร้างกราฟเส้นราคา (Price Ladder)
+                                    fig_s = go.Figure()
+
+                                    # วาดเส้นราคาของ *ทุกไม้* (เส้นบาง)
+                                    for price in specific_orders['Open Price']:
+                                        fig_s.add_shape(type="line", x0=0, x1=1, y0=price, y1=price, line=dict(color="rgba(255, 255, 255, 0.3)", width=1))
+
+                                    # วาดเส้น Top (หนา)
+                                    fig_s.add_shape(type="line", x0=0, x1=1, y0=max_p, y1=max_p, line=dict(color="#D50000", width=4)) # แดงเข้ม
+                                    fig_s.add_annotation(x=1, y=max_p, text=f"Top: {max_p:,.2f}", showarrow=False, yshift=10, font=dict(color="#D50000"))
+
+                                    # วาดเส้น Bottom (หนา)
+                                    fig_s.add_shape(type="line", x0=0, x1=1, y0=min_p, y1=min_p, line=dict(color="#00C853", width=4)) # เขียวเข้ม
+                                    fig_s.add_annotation(x=1, y=min_p, text=f"Bot: {min_p:,.2f}", showarrow=False, yshift=-10, font=dict(color="#00C853"))
+                                    
+                                    # วาดเส้น Avg (ประ เหลือง)
+                                    fig_s.add_shape(type="line", x0=0, x1=1, y0=avg_p, y1=avg_p, line=dict(color="#FFD600", width=2, dash="dash"))
+                                    fig_s.add_annotation(x=0.5, y=avg_p, text=f"Avg: {avg_p:,.2f}", showarrow=False, yshift=10, font=dict(color="#FFD600"))
+
+                                    # ปรับแต่ง
+                                    fig_s.update_layout(
+                                        title=dict(text=f"Price Levels ({len(specific_orders)} Orders)", font=dict(size=12, color="gray")),
+                                        xaxis=dict(visible=False, range=[0, 1.2]), # ซ่อนแกน X
+                                        yaxis=dict(title="Price", gridcolor='#333', tickfont=dict(color='white')),
+                                        margin=dict(l=40, r=40, t=30, b=20),
+                                        height=300, # ความสูงกำลังดี
+                                        paper_bgcolor='#0E1117', plot_bgcolor='#0E1117'
+                                    )
+                                    st.plotly_chart(fig_s, use_container_width=True, config={'displayModeBar': False})
+
+                            # --- 7. Summary Table ---
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            with st.expander("📊 ดูสรุปตาม Magic Number (Summary)", expanded=False):
                                 display_df = magic_summary[['Magic', 'OrderType', 'OrderCount', 'TotalLots', 'MinPrice', 'MaxPrice', 'AvgPrice', 'TotalProfit']].copy()
                                 display_df.columns = ['Magic', 'Type', 'Count', 'Lots', 'Min', 'Max', 'Avg Price', 'Profit']
-                                
                                 display_df['Lots'] = display_df['Lots'].map('{:,.2f}'.format)
                                 display_df['Min'] = display_df['Min'].map('{:,.2f}'.format)
                                 display_df['Max'] = display_df['Max'].map('{:,.2f}'.format)
                                 display_df['Avg Price'] = display_df['Avg Price'].map('{:,.2f}'.format)
-                                display_df['Profit'] = display_df['Profit'].map('{:,.2f}'.format) # Format Profit
+                                display_df['Profit'] = display_df['Profit'].map('{:,.2f}'.format)
                                 
                                 def highlight_type(val):
                                     color = '#00C853' if val == 'Buy' else '#D50000'
                                     return f'color: {color}; font-weight: bold'
-
                                 st.dataframe(display_df.style.map(highlight_type, subset=['Type']), use_container_width=True, height=300)
 
                         else:
