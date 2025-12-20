@@ -105,6 +105,7 @@ else:
                 orders_str = latest.get('JSON_Data', '[]')
                 if pd.isna(orders_str) or orders_str == "": orders_str = '[]'
                 
+                # Start JSON processing
                 try:
                     orders = json.loads(orders_str)
                     if len(orders) > 0 and current_price > 0:
@@ -127,14 +128,13 @@ else:
                             # เตรียมข้อมูลวาดกราฟ
                             fig_p = go.Figure()
 
-                            # 1. เส้น Market Price (เส้นประ)
+                            # 1. เส้น Market Price
                             fig_p.add_hline(
                                 y=current_price, line_dash="dash", line_color="#29B6F6", line_width=1,
                                 annotation_text=f"Market: {current_price:,.2f}", annotation_position="top right", annotation_font=dict(color="#29B6F6", size=10)
                             )
 
-                            # 2. วาดโครงสร้าง
-                            
+                            # 2. วาดโครงสร้างทีละส่วน
                             # A. เส้นบาง (Orders)
                             fig_p.add_trace(go.Scatter(
                                 x=orders_df['Magic'].astype(str),
@@ -145,7 +145,7 @@ else:
                                 hoverinfo='y+x'
                             ))
 
-                            # B. เส้นหนา - Top (Max Price)
+                            # B. เส้นหนา - Top
                             fig_p.add_trace(go.Scatter(
                                 x=magic_stats['Magic'].astype(str),
                                 y=magic_stats['MaxPrice'],
@@ -155,25 +155,11 @@ else:
                                 hovertemplate="Max: %{y:,.2f}<extra></extra>"
                             ))
 
-                            # C. เส้นหนา - Bottom (Min Price)
+                            # C. เส้นหนา - Bottom
                             fig_p.add_trace(go.Scatter(
                                 x=magic_stats['Magic'].astype(str),
                                 y=magic_stats['MinPrice'],
                                 mode='markers',
                                 name='Bottom',
                                 marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")),
-                                hovertemplate="Min: %{y:,.2f}<extra></extra>"
-                            ))
-
-                            # D. เส้นหนาพิเศษ - Average (Avg Price)
-                            fig_p.add_trace(go.Scatter(
-                                x=magic_stats['Magic'].astype(str),
-                                y=magic_stats['AvgPrice'],
-                                mode='markers', 
-                                name='Avg Price',
-                                marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), 
-                                hovertemplate="Avg: %{y:,.2f}<extra></extra>"
-                            ))
-                            
-                            # E. ป้ายชื่อ Magic + จำนวนไม้
-                            # เตรียม Text
+                                hovertemplate="Min: %{y:,.
