@@ -100,7 +100,7 @@ else:
                 fig.update_layout(barmode='stack', showlegend=False, xaxis=dict(visible=False, range=[0, max(balance, equity) * 1.15]), yaxis=dict(visible=False), margin=dict(l=0, r=0, t=30, b=10), height=100, paper_bgcolor='#0E1117', plot_bgcolor='#0E1117')
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
 
-                # --- 4. ALL-IN-ONE CHART (Price Ladder) ---
+                # --- 4. STRUCTURE CHART (All-in-One) ---
                 st.markdown("---")
                 orders_str = latest.get('JSON_Data', '[]')
                 if pd.isna(orders_str) or orders_str == "": orders_str = '[]'
@@ -112,108 +112,96 @@ else:
                         orders_df.rename(columns={'s': 'Symbol', 't': 'Type', 'v': 'Volume', 'p': 'Open Price', 'pl': 'Profit', 'm': 'Magic'}, inplace=True)
                         
                         if 'Magic' in orders_df.columns:
-                            # 1. เตรียมข้อมูล Average Price ของแต่ละ Magic
+                            # คำนวณ Avg Price ของแต่ละ Magic
                             orders_df['WeightedVal'] = orders_df['Volume'] * orders_df['Open Price']
                             magic_stats = orders_df.groupby('Magic').agg(
                                 AvgPrice=('WeightedVal', 'sum'),
                                 TotalVol=('Volume', 'sum'),
+                                MinPrice=('Open Price', 'min'),
+                                MaxPrice=('Open Price', 'max'),
                                 OrderType=('Type', 'first')
                             ).reset_index()
                             magic_stats['AvgPrice'] = magic_stats['AvgPrice'] / magic_stats['TotalVol']
                             
-                            # สร้างกราฟ
+                            # เตรียมข้อมูลวาดกราฟ
                             fig_p = go.Figure()
 
-                            # 2. เส้น Market Price (เส้นประแนวนอนยาวตลอดกราฟ)
+                            # 1. เส้น Market Price (เส้นประ)
                             fig_p.add_hline(
-                                y=current_price, 
-                                line_dash="dash", line_color="#29B6F6", line_width=1,
-                                annotation_text=f"Market: {current_price:,.2f}", 
-                                annotation_position="top right",
-                                annotation_font=dict(color="#29B6F6", size=10)
+                                y=current_price, line_dash="dash", line_color="#29B6F6", line_width=1,
+                                annotation_text=f"Market: {current_price:,.2f}", annotation_position="top right", annotation_font=dict(color="#29B6F6", size=10)
                             )
 
-                            # 3. วาดข้อมูลทีละ Magic Number
-                            # แยกสี Buy/Sell
-                            buy_orders = orders_df[orders_df['Type'] == 'Buy']
-                            sell_orders = orders_df[orders_df['Type'] == 'Sell']
-
-                            # --- ส่วนแสดง Buy (สีเขียว) ---
-                            if not buy_orders.empty:
-                                # จุดออเดอร์ (Dots)
-                                fig_p.add_trace(go.Scatter(
-                                    x=buy_orders['Magic'].astype(str), 
-                                    y=buy_orders['Open Price'],
-                                    mode='markers',
-                                    name='Buy Order',
-                                    marker=dict(color='#00C853', size=6, opacity=0.7),
-                                    hovertemplate="Magic: %{x}<br>Price: %{y:,.2f}<br>Lot: %{customdata:.2f}<extra></extra>",
-                                    customdata=buy_orders['Volume']
-                                ))
+                            # 2. วาดโครงสร้างทีละส่วน (เพื่อประสิทธิภาพ เราจะวาดเป็นกลุ่ม)
                             
-                            # --- ส่วนแสดง Sell (สีแดง) ---
-                            if not sell_orders.empty:
-                                # จุดออเดอร์ (Dots)
-                                fig_p.add_trace(go.Scatter(
-                                    x=sell_orders['Magic'].astype(str), 
-                                    y=sell_orders['Open Price'],
-                                    mode='markers',
-                                    name='Sell Order',
-                                    marker=dict(color='#D50000', size=6, opacity=0.7),
-                                    hovertemplate="Magic: %{x}<br>Price: %{y:,.2f}<br>Lot: %{customdata:.2f}<extra></extra>",
-                                    customdata=sell_orders['Volume']
-                                ))
+                            # A. เส้นบาง (All Individual Orders) - แสดงความหนาแน่น
+                            # ใช้ scatter marker='line-ew' เพื่อทำเป็นขีดแนวนอน
+                            fig_p.add_trace(go.Scatter(
+                                x=orders_df['Magic'].astype(str),
+                                y=orders_df['Open Price'],
+                                mode='markers',
+                                name='Orders',
+                                marker=dict(symbol='line-ew', size=25, line=dict(width=1, color="rgba(255, 255, 255, 0.3)")), # เส้นขาวจางๆ
+                                hoverinfo='y+x'
+                            ))
 
-                            # 4. แสดงเส้นราคาเฉลี่ย (Avg Price) เป็นขีดขวางใหญ่ๆ
-                            for index, row in magic_stats.iterrows():
-                                color = '#00E676' if row['OrderType'] == 'Buy' else '#FF5252'
-                                fig_p.add_trace(go.Scatter(
-                                    x=[str(row['Magic'])], 
-                                    y=[row['AvgPrice']],
-                                    mode='markers+text',
-                                    marker=dict(symbol='line-ew', size=40, line=dict(color='#FFD600', width=3)), # สีเหลือง = Avg
-                                    text=[f"{row['AvgPrice']:,.2f}"],
-                                    textposition="top center",
-                                    textfont=dict(color='#FFD600', size=10),
-                                    name='Avg Price',
-                                    hoverinfo='skip'
-                                ))
+                            # B. เส้นหนา - Top (Max Price) - สีแดง
+                            fig_p.add_trace(go.Scatter(
+                                x=magic_stats['Magic'].astype(str),
+                                y=magic_stats['MaxPrice'],
+                                mode='markers',
+                                name='Top',
+                                marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#D50000")), # แดง
+                                hovertemplate="Max: %{y:,.2f}<extra></extra>"
+                            ))
+
+                            # C. เส้นหนา - Bottom (Min Price) - สีเขียว
+                            fig_p.add_trace(go.Scatter(
+                                x=magic_stats['Magic'].astype(str),
+                                y=magic_stats['MinPrice'],
+                                mode='markers',
+                                name='Bottom',
+                                marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")), # เขียว
+                                hovertemplate="Min: %{y:,.2f}<extra></extra>"
+                            ))
+
+                            # D. เส้นหนาพิเศษ - Average (Avg Price) - สีเหลือง
+                            fig_p.add_trace(go.Scatter(
+                                x=magic_stats['Magic'].astype(str),
+                                y=magic_stats['AvgPrice'],
+                                mode='markers', # ไม่ใส่ text ตรงนี้เพื่อให้กราฟดูคลีน
+                                name='Avg Price',
+                                marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), # เหลือง หนาสุด
+                                hovertemplate="Avg: %{y:,.2f}<extra></extra>"
+                            ))
 
                             fig_p.update_layout(
-                                title=dict(text="Structure View (All Orders)", font=dict(color='white', size=14, family=common_font)),
+                                title=dict(text="Portfolio Structure (All Magics)", font=dict(color='white', size=14, family=common_font)),
                                 xaxis=dict(
-                                    title="Magic Number",
-                                    type='category', 
-                                    tickfont=dict(color='white', size=12),
-                                    gridcolor='#333'
+                                    title="Magic Number", type='category', 
+                                    tickfont=dict(color='white', size=12), gridcolor='#333'
                                 ),
                                 yaxis=dict(
-                                    title="Price", 
-                                    gridcolor='#333', 
-                                    tickfont=dict(color='white')
+                                    title="Price Level", gridcolor='#333', tickfont=dict(color='white')
                                 ),
                                 margin=dict(l=40, r=20, t=40, b=40),
-                                height=400,
+                                height=450,
                                 showlegend=False,
-                                paper_bgcolor='#0E1117', 
-                                plot_bgcolor='#0E1117'
+                                paper_bgcolor='#0E1117', plot_bgcolor='#0E1117'
                             )
-                            
                             st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
 
                             # --- 5. Summary Table ---
                             st.markdown("<br>", unsafe_allow_html=True)
                             with st.expander("📊 ดูสรุปตาม Magic Number (Summary)", expanded=False):
-                                magic_summary = orders_df.groupby('Magic').agg(
-                                    OrderType=('Type', 'first'), OrderCount=('Magic', 'count'), TotalLots=('Volume', 'sum'),
-                                    MinPrice=('Open Price', 'min'), MaxPrice=('Open Price', 'max'), TotalProfit=('Profit', 'sum')
-                                ).reset_index()
-                                # Calculate Avg separately to be safe
-                                magic_summary['AvgPrice'] = magic_stats.set_index('Magic')['AvgPrice'].values
+                                display_df = magic_stats[['Magic', 'OrderType', 'TotalVol', 'MinPrice', 'MaxPrice', 'AvgPrice']].copy()
+                                # Join Profit data back
+                                profit_df = orders_df.groupby('Magic')['Profit'].sum().reset_index()
+                                display_df = display_df.merge(profit_df, on='Magic')
                                 
-                                display_df = magic_summary[['Magic', 'OrderType', 'OrderCount', 'TotalLots', 'MinPrice', 'MaxPrice', 'AvgPrice', 'TotalProfit']].copy()
-                                display_df.columns = ['Magic', 'Type', 'Count', 'Lots', 'Min', 'Max', 'Avg Price', 'Profit']
+                                display_df.columns = ['Magic', 'Type', 'Lots', 'Min', 'Max', 'Avg Price', 'Profit']
                                 for c in ['Lots', 'Min', 'Max', 'Avg Price', 'Profit']: display_df[c] = display_df[c].map('{:,.2f}'.format)
+                                
                                 def highlight_type(val): return f'color: {"#00C853" if val == "Buy" else "#D50000"}; font-weight: bold'
                                 st.dataframe(display_df.style.map(highlight_type, subset=['Type']), use_container_width=True, height=300)
 
