@@ -13,6 +13,7 @@ SHEET_URL = f"https://docs.google.com/spreadsheets/d/1BdkpzNz5lqECpnyc7PgC1BQMc5
 
 st.set_page_config(page_title="Mobile Monitor", page_icon="📱", layout="wide")
 
+# --- CSS ปรับแต่งพิเศษสำหรับมือถือ ---
 st.markdown("""
 <style>
     .block-container {
@@ -32,6 +33,11 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+# --- 1. ระบบจำค่า (Session State) ---
+# สร้างตัวแปรไว้จำค่า Magic Number ที่ถูกเลือก
+if 'selected_magic' not in st.session_state:
+    st.session_state.selected_magic = None
 
 def load_data():
     try:
@@ -129,13 +135,10 @@ else:
                             buy_group = magic_summary[magic_summary['OrderType'] == 'Buy']
                             sell_group = magic_summary[magic_summary['OrderType'] == 'Sell']
 
-                            # --- 5. BUBBLE CHART (With Selection) ---
+                            # --- 5. BUBBLE CHART (With Memory) ---
                             fig_b = go.Figure()
+                            fig_b.add_hline(y=current_price, line_dash="dash", line_color="#29B6F6", annotation_text=f"Market: {current_price:,.2f}", annotation_position="top left", annotation_font=dict(color="#29B6F6", size=12))
 
-                            fig_b.add_hline(y=current_price, line_dash="dash", line_color="#29B6F6", 
-                                          annotation_text=f"Market: {current_price:,.2f}", annotation_position="top left", annotation_font=dict(color="#29B6F6", size=12))
-
-                            # BUY BUBBLES
                             if not buy_group.empty:
                                 fig_b.add_trace(go.Scatter(
                                     x=["BUY Zone"] * len(buy_group), y=buy_group['AvgPrice'], mode='markers+text', name='Buy',
@@ -145,7 +148,6 @@ else:
                                     customdata=buy_group[['Magic', 'TotalProfit', 'MinPrice', 'MaxPrice']]
                                 ))
 
-                            # SELL BUBBLES
                             if not sell_group.empty:
                                 fig_b.add_trace(go.Scatter(
                                     x=["SELL Zone"] * len(sell_group), y=sell_group['AvgPrice'], mode='markers+text', name='Sell',
@@ -161,81 +163,98 @@ else:
                                 xaxis=dict(showgrid=False, zeroline=False, tickfont=dict(color='white', size=14, family=common_font, weight='bold'), side='bottom'),
                                 yaxis=dict(title="Price Level", gridcolor='#333', tickfont=dict(color='white', family=common_font)),
                                 paper_bgcolor='#0E1117', plot_bgcolor='#0E1117', height=450, showlegend=False,
-                                clickmode='event+select' # เปิดโหมดคลิก
+                                clickmode='event+select'
                             )
                             
-                            # 🔥 INTERACTIVE SELECTION 🔥
-                            # ใช้ on_select="rerun" เพื่อรับค่าการคลิก
-                            event = st.plotly_chart(fig_b, use_container_width=True, config={'displayModeBar': False}, on_select="rerun")
+                            # 🔥 รับค่าการจิ้มจากกราฟ
+                            event = st.plotly_chart(fig_b, use_container_width=True, config={'displayModeBar': False}, on_select="rerun", key="bubble_chart")
                             
-                            selected_magic = None
-                            
-                            # 1. ลองดึงจากการคลิก Bubble
+                            # ถ้ามีการจิ้มใหม่ ให้จำค่าลง Session State
                             if event and event.selection and len(event.selection['points']) > 0:
                                 try:
-                                    # ดึงค่า Magic จาก customdata[0] ที่เราใส่ไว้
-                                    selected_magic = event.selection['points'][0]['customdata'][0]
+                                    st.session_state.selected_magic = event.selection['points'][0]['customdata'][0]
                                 except:
-                                    pass
+                                    pass # ถ้าจิ้มพลาดก็ใช้ค่าเดิม
+
+                            # --- 6. PRICE STRUCTURE CHART (แสดงตามค่าที่จำไว้) ---
+                            # ใช้ค่าจาก Session State แทนการดึงจาก event โดยตรง
+                            current_magic = st.session_state.selected_magic
                             
-                            # 2. Backup: Dropdown เลือก Magic (เผื่อจิ้มยาก)
+                            # เตรียมรายการ Magic สำหรับ Dropdown (เผื่อเลือกเอง)
+                            magic_list = sorted(magic_summary['Magic'].unique().tolist())
+                            
+                            # Dropdown สำหรับเลือกแบบ Manual (Sync กับ Session State)
                             st.markdown("<br>", unsafe_allow_html=True)
                             col_sel1, col_sel2 = st.columns([1, 2])
                             with col_sel1:
-                                st.caption("หรือเลือกจากรายการ:")
+                                st.caption("Selected Magic:")
                             with col_sel2:
-                                # ถ้ามีการคลิกกราฟ ให้ค่า default เป็นค่าที่คลิก
+                                # หา index ของค่าปัจจุบัน เพื่อตั้งค่าเริ่มต้นให้ Dropdown
                                 default_idx = 0
-                                magic_list = sorted(magic_summary['Magic'].unique().tolist())
-                                if selected_magic in magic_list:
-                                    default_idx = magic_list.index(selected_magic)
+                                if current_magic in magic_list:
+                                    default_idx = magic_list.index(current_magic)
                                 
-                                manual_select = st.selectbox("🔍 เจาะลึก Magic Number", magic_list, index=default_idx, key=f"sel_{time.time()}")
-                                if manual_select: selected_magic = manual_select
+                                # ถ้าเปลี่ยน Dropdown ให้อัปเดต Session State ทันที
+                                manual_select = st.selectbox("🔍 เจาะลึก Magic Number", magic_list, index=default_idx, key="manual_select")
+                                if manual_select != current_magic:
+                                    st.session_state.selected_magic = manual_select
+                                    current_magic = manual_select
 
-                            # --- 6. PRICE STRUCTURE CHART (กราฟเส้นราคา) ---
-                            if selected_magic:
-                                st.markdown(f"##### 🎯 Structure of Magic: {selected_magic}")
+                            if current_magic:
+                                st.markdown(f"##### 🎯 Structure of Magic: {current_magic}")
                                 
-                                # กรองเฉพาะ Magic ที่เลือก
-                                specific_orders = orders_df[orders_df['Magic'] == selected_magic].copy()
+                                specific_orders = orders_df[orders_df['Magic'] == current_magic].copy()
                                 
                                 if not specific_orders.empty:
-                                    # คำนวณค่าสำคัญ
                                     max_p = specific_orders['Open Price'].max()
                                     min_p = specific_orders['Open Price'].min()
                                     
-                                    # คำนวณ Avg (Weighted)
                                     sum_w = (specific_orders['Volume'] * specific_orders['Open Price']).sum()
                                     sum_vol = specific_orders['Volume'].sum()
                                     avg_p = sum_w / sum_vol if sum_vol > 0 else 0
                                     
-                                    # สร้างกราฟเส้นราคา (Price Ladder)
+                                    # สร้างกราฟด้วย Scatter (Barcode Style) เพื่อให้แสดงผลถูกต้องแน่นอน
                                     fig_s = go.Figure()
 
-                                    # วาดเส้นราคาของ *ทุกไม้* (เส้นบาง)
-                                    for price in specific_orders['Open Price']:
-                                        fig_s.add_shape(type="line", x0=0, x1=1, y0=price, y1=price, line=dict(color="rgba(255, 255, 255, 0.3)", width=1))
+                                    # 1. เส้นไม้ทั้งหมด (ใช้ Scatter ขีดขวาง)
+                                    fig_s.add_trace(go.Scatter(
+                                        x=[0.5] * len(specific_orders), # อยู่ตรงกลาง
+                                        y=specific_orders['Open Price'],
+                                        mode='markers',
+                                        marker=dict(symbol='line-ew', size=300, line=dict(width=1, color="rgba(255, 255, 255, 0.4)")), # line-ew คือขีดขวาง
+                                        name='Orders',
+                                        hoverinfo='y'
+                                    ))
 
-                                    # วาดเส้น Top (หนา)
-                                    fig_s.add_shape(type="line", x0=0, x1=1, y0=max_p, y1=max_p, line=dict(color="#D50000", width=4)) # แดงเข้ม
-                                    fig_s.add_annotation(x=1, y=max_p, text=f"Top: {max_p:,.2f}", showarrow=False, yshift=10, font=dict(color="#D50000"))
+                                    # 2. เส้น Top (แดง)
+                                    fig_s.add_trace(go.Scatter(
+                                        x=[0.5], y=[max_p], mode='markers+text',
+                                        marker=dict(symbol='line-ew', size=300, line=dict(width=4, color="#D50000")),
+                                        text=[f"Top: {max_p:,.2f}"], textposition="top center", textfont=dict(color="#D50000"),
+                                        name='Top'
+                                    ))
 
-                                    # วาดเส้น Bottom (หนา)
-                                    fig_s.add_shape(type="line", x0=0, x1=1, y0=min_p, y1=min_p, line=dict(color="#00C853", width=4)) # เขียวเข้ม
-                                    fig_s.add_annotation(x=1, y=min_p, text=f"Bot: {min_p:,.2f}", showarrow=False, yshift=-10, font=dict(color="#00C853"))
-                                    
-                                    # วาดเส้น Avg (ประ เหลือง)
-                                    fig_s.add_shape(type="line", x0=0, x1=1, y0=avg_p, y1=avg_p, line=dict(color="#FFD600", width=2, dash="dash"))
-                                    fig_s.add_annotation(x=0.5, y=avg_p, text=f"Avg: {avg_p:,.2f}", showarrow=False, yshift=10, font=dict(color="#FFD600"))
+                                    # 3. เส้น Bottom (เขียว)
+                                    fig_s.add_trace(go.Scatter(
+                                        x=[0.5], y=[min_p], mode='markers+text',
+                                        marker=dict(symbol='line-ew', size=300, line=dict(width=4, color="#00C853")),
+                                        text=[f"Bot: {min_p:,.2f}"], textposition="bottom center", textfont=dict(color="#00C853"),
+                                        name='Bottom'
+                                    ))
 
-                                    # ปรับแต่ง
+                                    # 4. เส้น Avg (เหลือง)
+                                    fig_s.add_trace(go.Scatter(
+                                        x=[0.5], y=[avg_p], mode='markers+text',
+                                        marker=dict(symbol='line-ew', size=300, line=dict(width=2, color="#FFD600")), # ใช้ขีดทึบแทนเส้นประให้เห็นชัด
+                                        text=[f"Avg: {avg_p:,.2f}"], textposition="middle right", textfont=dict(color="#FFD600"),
+                                        name='Avg'
+                                    ))
+
                                     fig_s.update_layout(
-                                        title=dict(text=f"Price Levels ({len(specific_orders)} Orders)", font=dict(size=12, color="gray")),
-                                        xaxis=dict(visible=False, range=[0, 1.2]), # ซ่อนแกน X
+                                        xaxis=dict(visible=False, range=[0, 1]), 
                                         yaxis=dict(title="Price", gridcolor='#333', tickfont=dict(color='white')),
                                         margin=dict(l=40, r=40, t=30, b=20),
-                                        height=300, # ความสูงกำลังดี
+                                        height=300, showlegend=False,
                                         paper_bgcolor='#0E1117', plot_bgcolor='#0E1117'
                                     )
                                     st.plotly_chart(fig_s, use_container_width=True, config={'displayModeBar': False})
