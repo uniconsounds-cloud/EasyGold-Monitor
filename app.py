@@ -119,6 +119,7 @@ else:
                                 TotalVol=('Volume', 'sum'),
                                 MinPrice=('Open Price', 'min'),
                                 MaxPrice=('Open Price', 'max'),
+                                OrderCount=('Magic', 'count'), # นับจำนวนไม้
                                 OrderType=('Type', 'first')
                             ).reset_index()
                             magic_stats['AvgPrice'] = magic_stats['AvgPrice'] / magic_stats['TotalVol']
@@ -132,89 +133,42 @@ else:
                                 annotation_text=f"Market: {current_price:,.2f}", annotation_position="top right", annotation_font=dict(color="#29B6F6", size=10)
                             )
 
-                            # 2. วาดโครงสร้างทีละส่วน (เพื่อประสิทธิภาพ เราจะวาดเป็นกลุ่ม)
+                            # 2. วาดโครงสร้าง
                             
-                            # A. เส้นบาง (All Individual Orders) - แสดงความหนาแน่น
-                            # ใช้ scatter marker='line-ew' เพื่อทำเป็นขีดแนวนอน
+                            # A. เส้นบาง (All Individual Orders)
                             fig_p.add_trace(go.Scatter(
                                 x=orders_df['Magic'].astype(str),
                                 y=orders_df['Open Price'],
                                 mode='markers',
                                 name='Orders',
-                                marker=dict(symbol='line-ew', size=25, line=dict(width=1, color="rgba(255, 255, 255, 0.3)")), # เส้นขาวจางๆ
+                                marker=dict(symbol='line-ew', size=25, line=dict(width=1, color="rgba(255, 255, 255, 0.3)")),
                                 hoverinfo='y+x'
                             ))
 
-                            # B. เส้นหนา - Top (Max Price) - สีแดง
+                            # B. เส้นหนา - Top (Max Price)
                             fig_p.add_trace(go.Scatter(
                                 x=magic_stats['Magic'].astype(str),
                                 y=magic_stats['MaxPrice'],
                                 mode='markers',
                                 name='Top',
-                                marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#D50000")), # แดง
+                                marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#D50000")),
                                 hovertemplate="Max: %{y:,.2f}<extra></extra>"
                             ))
 
-                            # C. เส้นหนา - Bottom (Min Price) - สีเขียว
+                            # C. เส้นหนา - Bottom (Min Price)
                             fig_p.add_trace(go.Scatter(
                                 x=magic_stats['Magic'].astype(str),
                                 y=magic_stats['MinPrice'],
                                 mode='markers',
                                 name='Bottom',
-                                marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")), # เขียว
+                                marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")),
                                 hovertemplate="Min: %{y:,.2f}<extra></extra>"
                             ))
 
-                            # D. เส้นหนาพิเศษ - Average (Avg Price) - สีเหลือง
+                            # D. เส้นหนาพิเศษ - Average
                             fig_p.add_trace(go.Scatter(
                                 x=magic_stats['Magic'].astype(str),
                                 y=magic_stats['AvgPrice'],
-                                mode='markers', # ไม่ใส่ text ตรงนี้เพื่อให้กราฟดูคลีน
+                                mode='markers', 
                                 name='Avg Price',
-                                marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), # เหลือง หนาสุด
-                                hovertemplate="Avg: %{y:,.2f}<extra></extra>"
-                            ))
-
-                            fig_p.update_layout(
-                                title=dict(text="Portfolio Structure (All Magics)", font=dict(color='white', size=14, family=common_font)),
-                                xaxis=dict(
-                                    title="Magic Number", type='category', 
-                                    tickfont=dict(color='white', size=12), gridcolor='#333'
-                                ),
-                                yaxis=dict(
-                                    title="Price Level", gridcolor='#333', tickfont=dict(color='white')
-                                ),
-                                margin=dict(l=40, r=20, t=40, b=40),
-                                height=450,
-                                showlegend=False,
-                                paper_bgcolor='#0E1117', plot_bgcolor='#0E1117'
-                            )
-                            st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
-
-                            # --- 5. Summary Table ---
-                            st.markdown("<br>", unsafe_allow_html=True)
-                            with st.expander("📊 ดูสรุปตาม Magic Number (Summary)", expanded=False):
-                                display_df = magic_stats[['Magic', 'OrderType', 'TotalVol', 'MinPrice', 'MaxPrice', 'AvgPrice']].copy()
-                                # Join Profit data back
-                                profit_df = orders_df.groupby('Magic')['Profit'].sum().reset_index()
-                                display_df = display_df.merge(profit_df, on='Magic')
-                                
-                                display_df.columns = ['Magic', 'Type', 'Lots', 'Min', 'Max', 'Avg Price', 'Profit']
-                                for c in ['Lots', 'Min', 'Max', 'Avg Price', 'Profit']: display_df[c] = display_df[c].map('{:,.2f}'.format)
-                                
-                                def highlight_type(val): return f'color: {"#00C853" if val == "Buy" else "#D50000"}; font-weight: bold'
-                                st.dataframe(display_df.style.map(highlight_type, subset=['Type']), use_container_width=True, height=300)
-
-                        else:
-                            st.info("⚠️ ไม่พบข้อมูล Magic Number")
-                    else:
-                        st.info("✅ พอร์ตว่าง (No Active Orders)")
-                except Exception as e:
-                     st.error(f"Error parsing JSON: {e}")
-            else:
-                st.warning(f"ไม่พบข้อมูลสำหรับ: {selected_account}")
-    except Exception as main_e:
-        st.error(f"System Error: {main_e}")
-
-time.sleep(5)
-st.rerun()
+                                marker=dict
