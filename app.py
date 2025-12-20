@@ -105,7 +105,6 @@ else:
                 orders_str = latest.get('JSON_Data', '[]')
                 if pd.isna(orders_str) or orders_str == "": orders_str = '[]'
                 
-                # Start JSON processing
                 try:
                     orders = json.loads(orders_str)
                     if len(orders) > 0 and current_price > 0:
@@ -155,11 +154,81 @@ else:
                                 hovertemplate="Max: %{y:,.2f}<extra></extra>"
                             ))
 
-                            # C. เส้นหนา - Bottom
+                            # C. เส้นหนา - Bottom (แก้บรรทัดที่มีปัญหา)
                             fig_p.add_trace(go.Scatter(
                                 x=magic_stats['Magic'].astype(str),
                                 y=magic_stats['MinPrice'],
                                 mode='markers',
                                 name='Bottom',
                                 marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")),
-                                hovertemplate="Min: %{y:,.
+                                hovertemplate="Min: %{y:,.2f}<extra></extra>"
+                            ))
+
+                            # D. เส้นหนาพิเศษ - Average
+                            fig_p.add_trace(go.Scatter(
+                                x=magic_stats['Magic'].astype(str),
+                                y=magic_stats['AvgPrice'],
+                                mode='markers', 
+                                name='Avg Price',
+                                marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), 
+                                hovertemplate="Avg: %{y:,.2f}<extra></extra>"
+                            ))
+                            
+                            # E. ป้ายชื่อ Magic + จำนวนไม้ (วางไว้เหนือเส้น Top)
+                            label_texts = [f"M: {m}<br>({c} Orders)" for m, c in zip(magic_stats['Magic'], magic_stats['OrderCount'])]
+                            
+                            fig_p.add_trace(go.Scatter(
+                                x=magic_stats['Magic'].astype(str),
+                                y=magic_stats['MaxPrice'], 
+                                mode='text',
+                                text=label_texts,
+                                textposition="top center",
+                                textfont=dict(color='white', size=11, family=common_font),
+                                hoverinfo='skip'
+                            ))
+
+                            fig_p.update_layout(
+                                title=dict(text="Portfolio Structure (All Magics)", font=dict(color='white', size=14, family=common_font)),
+                                xaxis=dict(
+                                    showticklabels=False, 
+                                    type='category', 
+                                    gridcolor='#333'
+                                ),
+                                yaxis=dict(
+                                    title="Price Level", gridcolor='#333', tickfont=dict(color='white')
+                                ),
+                                margin=dict(l=40, r=20, t=40, b=40),
+                                height=450,
+                                showlegend=False,
+                                paper_bgcolor='#0E1117', plot_bgcolor='#0E1117'
+                            )
+                            st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
+
+                            # --- 5. Summary Table ---
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            with st.expander("📊 ดูสรุปตาม Magic Number (Summary)", expanded=False):
+                                display_df = magic_stats[['Magic', 'OrderType', 'TotalVol', 'MinPrice', 'MaxPrice', 'AvgPrice']].copy()
+                                profit_df = orders_df.groupby('Magic')['Profit'].sum().reset_index()
+                                display_df = display_df.merge(profit_df, on='Magic')
+                                
+                                display_df.columns = ['Magic', 'Type', 'Lots', 'Min', 'Max', 'Avg Price', 'Profit']
+                                for c in ['Lots', 'Min', 'Max', 'Avg Price', 'Profit']: display_df[c] = display_df[c].map('{:,.2f}'.format)
+                                
+                                def highlight_type(val): return f'color: {"#00C853" if val == "Buy" else "#D50000"}; font-weight: bold'
+                                st.dataframe(display_df.style.map(highlight_type, subset=['Type']), use_container_width=True, height=300)
+
+                        else:
+                            st.info("⚠️ ไม่พบข้อมูล Magic Number")
+                    else:
+                        st.info("✅ พอร์ตว่าง (No Active Orders)")
+
+                # End JSON try block
+                except Exception as e:
+                     st.error(f"Error parsing JSON: {e}")
+            else:
+                st.warning(f"ไม่พบข้อมูลสำหรับ: {selected_account}")
+    except Exception as main_e:
+        st.error(f"System Error: {main_e}")
+
+time.sleep(5)
+st.rerun()
