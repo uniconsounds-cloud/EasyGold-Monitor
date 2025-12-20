@@ -30,10 +30,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 1. ตัวแปรจำค่า (Session State) ---
-# ตัวแปรนี้คือ "พระเอก" ที่จะเชื่อมกราฟกับ Dropdown เข้าด้วยกัน
-if 'focused_magic' not in st.session_state:
-    st.session_state.focused_magic = None
+# --- 1. เตรียมตัวแปรจำค่าสำหรับ Dropdown ---
+# เราจะใช้ key ชื่อ "magic_selector" ในการคุม Dropdown
+if 'magic_selector' not in st.session_state:
+    st.session_state.magic_selector = None
 
 def load_data():
     try:
@@ -105,7 +105,7 @@ else:
                 fig.update_layout(barmode='stack', showlegend=False, xaxis=dict(visible=False, range=[0, max(balance, equity) * 1.15]), yaxis=dict(visible=False), margin=dict(l=0, r=0, t=30, b=10), height=100, paper_bgcolor='#0E1117', plot_bgcolor='#0E1117')
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
 
-                # --- 4. BUBBLE CHART PREP ---
+                # --- 4. BUBBLE CHART ---
                 st.markdown("---")
                 orders_str = latest.get('JSON_Data', '[]')
                 if pd.isna(orders_str) or orders_str == "": orders_str = '[]'
@@ -159,48 +159,36 @@ else:
                             )
                             
                             # 🔥 รับค่า Touch Event
+                            # ใช้ on_select="rerun" ให้หน้ารีเฟรชทันทีเมื่อแตะ
                             event = st.plotly_chart(fig_b, use_container_width=True, config={'displayModeBar': False}, on_select="rerun", key="bubble_chart_main")
                             
-                            # 🔥 LOGIC 1: เช็คว่ามีการแตะกราฟไหม
+                            # 🔥 LOGIC บังคับเปลี่ยนค่า Dropdown
+                            # ถ้ามีการแตะกราฟ เราจะยัดค่าลงไปใน session_state["magic_selector"] โดยตรง
                             if event and event.selection and len(event.selection['points']) > 0:
                                 try:
                                     clicked_magic = event.selection['points'][0]['customdata'][0]
-                                    # ถ้าค่าที่คลิก ไม่ตรงกับค่าปัจจุบัน -> อัปเดตและสั่งรีเฟรชหน้าจอทันที
-                                    if clicked_magic != st.session_state.focused_magic:
-                                        st.session_state.focused_magic = clicked_magic
-                                        st.rerun() # 👈 สำคัญมาก: รีเฟรชเพื่อไปบังคับ Dropdown ในรอบถัดไป
+                                    # ยัดค่าลงใน Key ของ Dropdown เลย (นี่คือจุดสำคัญ!)
+                                    st.session_state.magic_selector = clicked_magic
                                 except:
                                     pass
 
-                            # --- 6. PRICE STRUCTURE & SYNCED DROPDOWN ---
-                            
-                            # เตรียมลิสต์สำหรับ Dropdown
+                            # --- 6. SYNCED DROPDOWN & PRICE STRUCTURE ---
                             magic_list = sorted(magic_summary['Magic'].unique().tolist())
-                            
-                            # 🔥 LOGIC 2: คำนวณ Index ของ Dropdown จากค่า focused_magic
-                            current_index = 0
-                            if st.session_state.focused_magic in magic_list:
-                                current_index = magic_list.index(st.session_state.focused_magic)
                             
                             st.markdown("<br>", unsafe_allow_html=True)
                             col_sel1, col_sel2 = st.columns([1, 2])
                             with col_sel1: st.caption("Selected Magic:")
                             with col_sel2:
-                                # สร้าง Dropdown โดยบังคับ Index
+                                # สร้าง Dropdown และผูกกับ key "magic_selector"
+                                # เมื่อ key นี้ถูกเปลี่ยนค่าโดยกราฟ Dropdown จะเปลี่ยนตามทันที
                                 manual_select = st.selectbox(
                                     "🔍 เจาะลึก Magic Number", 
                                     magic_list, 
-                                    index=current_index, # 👈 บังคับให้เด้งไปที่ค่าที่เลือก
-                                    key="manual_dropdown_widget"
+                                    key="magic_selector" 
                                 )
                                 
-                                # 🔥 LOGIC 3: ถ้าคนเปลี่ยน Dropdown ด้วยมือ ก็ให้อัปเดตกลับไปที่ focused_magic ด้วย
-                                if manual_select != st.session_state.focused_magic:
-                                    st.session_state.focused_magic = manual_select
-                                    st.rerun()
-
-                            # ใช้ค่าจากตัวแปรหลักมาแสดงผล
-                            final_magic = st.session_state.focused_magic
+                            # ใช้ค่าจากตัวแปร manual_select (ซึ่งตอนนี้ตรงกับกราฟแล้วแน่นอน)
+                            final_magic = manual_select
 
                             if final_magic:
                                 st.markdown(f"##### 🎯 Structure of Magic: {final_magic}")
