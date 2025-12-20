@@ -119,7 +119,7 @@ else:
                                 TotalVol=('Volume', 'sum'),
                                 MinPrice=('Open Price', 'min'),
                                 MaxPrice=('Open Price', 'max'),
-                                OrderCount=('Magic', 'count'), # นับจำนวนไม้
+                                OrderCount=('Magic', 'count'), 
                                 OrderType=('Type', 'first')
                             ).reset_index()
                             magic_stats['AvgPrice'] = magic_stats['AvgPrice'] / magic_stats['TotalVol']
@@ -135,7 +135,7 @@ else:
 
                             # 2. วาดโครงสร้าง
                             
-                            # A. เส้นบาง (All Individual Orders)
+                            # A. เส้นบาง (Orders)
                             fig_p.add_trace(go.Scatter(
                                 x=orders_df['Magic'].astype(str),
                                 y=orders_df['Open Price'],
@@ -165,10 +165,15 @@ else:
                                 hovertemplate="Min: %{y:,.2f}<extra></extra>"
                             ))
 
-                            # D. เส้นหนาพิเศษ - Average
+                            # D. เส้นหนาพิเศษ - Average (Avg Price)
                             fig_p.add_trace(go.Scatter(
                                 x=magic_stats['Magic'].astype(str),
                                 y=magic_stats['AvgPrice'],
                                 mode='markers', 
                                 name='Avg Price',
-                                marker=dict
+                                marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), 
+                                hovertemplate="Avg: %{y:,.2f}<extra></extra>"
+                            ))
+                            
+                            # E. ป้ายชื่อ Magic + จำนวนไม้
+                            # เตรียม Text
