@@ -30,8 +30,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 1. เตรียมตัวแปรจำค่าสำหรับ Dropdown ---
-# เราจะใช้ key ชื่อ "magic_selector" ในการคุม Dropdown
+# --- 1. ตัวแปรจำค่าสำหรับ Dropdown ---
 if 'magic_selector' not in st.session_state:
     st.session_state.magic_selector = None
 
@@ -137,7 +136,8 @@ else:
                                     marker=dict(size=buy_group['TotalLots'], sizemode='area', sizeref=2.*max(magic_summary['TotalLots'])/(70.**2), sizemin=18, color='#00C853', line=dict(width=1, color='white')),
                                     text=buy_group['OrderCount'], textposition="middle center", textfont=dict(color='white', family=common_font, weight='bold'),
                                     hovertemplate="<b>Magic: %{customdata[0]}</b><br>Orders: %{customdata[4]}<br>Lots: %{marker.size:.2f}<br>Avg: %{y:,.2f}<br>Min: %{customdata[2]:,.2f}<br>Max: %{customdata[3]:,.2f}<br>Profit: %{customdata[1]:,.2f}<extra></extra>",
-                                    customdata=buy_group[['Magic', 'TotalProfit', 'MinPrice', 'MaxPrice', 'OrderCount']]
+                                    # 🔥 ใช้ .values เพื่อความชัวร์ในการส่งข้อมูล
+                                    customdata=buy_group[['Magic', 'TotalProfit', 'MinPrice', 'MaxPrice', 'OrderCount']].values
                                 ))
 
                             if not sell_group.empty:
@@ -146,7 +146,8 @@ else:
                                     marker=dict(size=sell_group['TotalLots'], sizemode='area', sizeref=2.*max(magic_summary['TotalLots'])/(70.**2), sizemin=18, color='#D50000', line=dict(width=1, color='white')),
                                     text=sell_group['OrderCount'], textposition="middle center", textfont=dict(color='white', family=common_font, weight='bold'),
                                     hovertemplate="<b>Magic: %{customdata[0]}</b><br>Orders: %{customdata[4]}<br>Lots: %{marker.size:.2f}<br>Avg: %{y:,.2f}<br>Min: %{customdata[2]:,.2f}<br>Max: %{customdata[3]:,.2f}<br>Profit: %{customdata[1]:,.2f}<extra></extra>",
-                                    customdata=sell_group[['Magic', 'TotalProfit', 'MinPrice', 'MaxPrice', 'OrderCount']]
+                                    # 🔥 ใช้ .values เพื่อความชัวร์ในการส่งข้อมูล
+                                    customdata=sell_group[['Magic', 'TotalProfit', 'MinPrice', 'MaxPrice', 'OrderCount']].values
                                 ))
 
                             fig_b.update_layout(
@@ -159,16 +160,19 @@ else:
                             )
                             
                             # 🔥 รับค่า Touch Event
-                            # ใช้ on_select="rerun" ให้หน้ารีเฟรชทันทีเมื่อแตะ
                             event = st.plotly_chart(fig_b, use_container_width=True, config={'displayModeBar': False}, on_select="rerun", key="bubble_chart_main")
                             
-                            # 🔥 LOGIC บังคับเปลี่ยนค่า Dropdown
-                            # ถ้ามีการแตะกราฟ เราจะยัดค่าลงไปใน session_state["magic_selector"] โดยตรง
+                            # 🔥 LOGIC สำคัญ: ถ้ามีการแตะกราฟ
                             if event and event.selection and len(event.selection['points']) > 0:
                                 try:
                                     clicked_magic = event.selection['points'][0]['customdata'][0]
-                                    # ยัดค่าลงใน Key ของ Dropdown เลย (นี่คือจุดสำคัญ!)
-                                    st.session_state.magic_selector = clicked_magic
+                                    
+                                    # ถ้าค่าที่จิ้ม ไม่ตรงกับค่าปัจจุบันใน Dropdown
+                                    if clicked_magic != st.session_state.magic_selector:
+                                        # บังคับอัปเดตค่า Dropdown
+                                        st.session_state.magic_selector = clicked_magic
+                                        # 🚨 สำคัญมาก: สั่งรีเฟรชหน้าจอทันที เพื่อให้ Dropdown รับค่าใหม่ไปแสดง
+                                        st.rerun()
                                 except:
                                     pass
 
@@ -179,15 +183,13 @@ else:
                             col_sel1, col_sel2 = st.columns([1, 2])
                             with col_sel1: st.caption("Selected Magic:")
                             with col_sel2:
-                                # สร้าง Dropdown และผูกกับ key "magic_selector"
-                                # เมื่อ key นี้ถูกเปลี่ยนค่าโดยกราฟ Dropdown จะเปลี่ยนตามทันที
+                                # Dropdown นี้ผูกกับ key "magic_selector"
                                 manual_select = st.selectbox(
                                     "🔍 เจาะลึก Magic Number", 
                                     magic_list, 
                                     key="magic_selector" 
                                 )
                                 
-                            # ใช้ค่าจากตัวแปร manual_select (ซึ่งตอนนี้ตรงกับกราฟแล้วแน่นอน)
                             final_magic = manual_select
 
                             if final_magic:
