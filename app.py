@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 import time
+import textwrap  # เพิ่ม module นี้เพื่อแก้ปัญหา HTML ย่อหน้า
 
 # ---------------------------------------------------------
 # 🛠 ใส่ SHEET ID ของคุณตรงนี้ 🛠
@@ -13,7 +14,7 @@ SHEET_URL = f"https://docs.google.com/spreadsheets/d/1BdkpzNz5lqECpnyc7PgC1BQMc5
 st.set_page_config(page_title="Tactical Monitor", page_icon="🛸", layout="wide")
 
 # =========================================================
-# 1. CSS STYLING (แยกออกมาเป็น String ธรรมดา เพื่อไม่ให้ Error)
+# 1. CSS STYLING
 # =========================================================
 css_styles = """
 <style>
@@ -60,7 +61,6 @@ css_styles = """
     .div-bar-fill { height: 100%; position: absolute; opacity: 0.9; }
 </style>
 """
-# Render CSS ทันที
 st.markdown(css_styles, unsafe_allow_html=True)
 
 # --- 2. HELPER FUNCTIONS ---
@@ -108,9 +108,7 @@ else:
                 total_lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
                 
                 # Logic for Visuals
-                status_color = "#00e676" if profit >= 0 else "#ff1744" # Green or Red
-                
-                # Health Bar Calculation
+                status_color = "#00e676" if profit >= 0 else "#ff1744"
                 max_scale = max(balance, equity) * 1.2
                 if max_scale == 0: max_scale = 1
                 eq_pct = (equity / max_scale) * 100
@@ -120,36 +118,35 @@ else:
                 # 3. RENDER HUD HEADER (Overview)
                 # ==========================================
                 
-                # ส่วนนี้ใช้ f-string ได้ เพราะเราใส่ค่าตัวแปรลงไป
-                # และไม่มี CSS {} มาปน
-                header_html = f"""
-                <div class="hud-box">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
-                        <div>
-                            <div class="hud-label">MARKET PRICE</div>
-                            <div class="hud-value">{current_price:,.2f}</div>
+                # ใช้ textwrap.dedent เพื่อลบช่องว่างข้างหน้าทิ้ง ป้องกัน Markdown มองเป็น Code Block
+                header_html = textwrap.dedent(f"""
+                    <div class="hud-box">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
+                            <div>
+                                <div class="hud-label">MARKET PRICE</div>
+                                <div class="hud-value">{current_price:,.2f}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div class="hud-label">NET EQUITY</div>
+                                <div class="hud-value" style="color: {status_color};">{equity:,.0f}</div>
+                            </div>
                         </div>
-                        <div style="text-align:right;">
-                            <div class="hud-label">NET EQUITY</div>
-                            <div class="hud-value" style="color: {status_color};">{equity:,.0f}</div>
+                        
+                        <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#aaa;">
+                            <span>0</span>
+                            <span>BALANCE: {balance:,.0f}</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-marker" style="left: {bal_pct}%;"></div>
+                            <div class="bar-fill" style="width: {eq_pct}%; background: {status_color}; box-shadow: 0 0 8px {status_color};"></div>
+                        </div>
+                        
+                        <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-top:5px; border-top:1px solid #333; padding-top:5px;">
+                            <div>TOTAL LOTS: <b style="color:#fff">{total_lots:.2f}</b></div>
+                            <div>P/L: <b style="color:{status_color}">{profit:+,.2f}</b></div>
                         </div>
                     </div>
-                    
-                    <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#aaa;">
-                        <span>0</span>
-                        <span>BALANCE: {balance:,.0f}</span>
-                    </div>
-                    <div class="bar-container">
-                        <div class="bar-marker" style="left: {bal_pct}%;"></div>
-                        <div class="bar-fill" style="width: {eq_pct}%; background: {status_color}; box-shadow: 0 0 8px {status_color};"></div>
-                    </div>
-                    
-                    <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-top:5px; border-top:1px solid #333; padding-top:5px;">
-                        <div>TOTAL LOTS: <b style="color:#fff">{total_lots:.2f}</b></div>
-                        <div>P/L: <b style="color:{status_color}">{profit:+,.2f}</b></div>
-                    </div>
-                </div>
-                """
+                """)
                 st.markdown(header_html, unsafe_allow_html=True)
 
                 # ==========================================
@@ -167,7 +164,6 @@ else:
                         orders_df.rename(columns={'s': 'Symbol', 't': 'Type', 'v': 'Volume', 'p': 'Open Price', 'pl': 'Profit', 'm': 'Magic'}, inplace=True)
                         
                         if 'Magic' in orders_df.columns:
-                            # Group Data
                             magic_stats = orders_df.groupby('Magic').agg(
                                 OrderType=('Type', 'first'),
                                 OrderCount=('Magic', 'count'),
@@ -175,7 +171,6 @@ else:
                                 TotalProfit=('Profit', 'sum')
                             ).reset_index()
 
-                            # หาค่า Max เพื่อทำกราฟแท่ง
                             max_abs_profit = magic_stats['TotalProfit'].abs().max()
                             if max_abs_profit == 0: max_abs_profit = 1
                             
@@ -188,7 +183,6 @@ else:
                                 m_lots = row['TotalLots']
                                 m_profit = row['TotalProfit']
                                 
-                                # Logic สี
                                 if m_type == "Buy":
                                     badge_cls = "badge-buy"
                                     border_col = "#00e676"
@@ -196,39 +190,34 @@ else:
                                     badge_cls = "badge-sell"
                                     border_col = "#ff1744"
                                 
-                                # Logic กราฟแท่ง (Bar)
                                 pct_len = (abs(m_profit) / max_abs_profit) * 50
                                 bar_col = "#00e676" if m_profit >= 0 else "#ff1744"
                                 
-                                # สร้าง HTML Bar
                                 if m_profit >= 0:
-                                    # กำไร (ไปทางขวา)
-                                    # ใช้ f-string ได้เพราะเป็น string ย่อยๆ ไม่มี CSS block
                                     bar_div = f'<div class="div-bar-fill" style="left: 50%; width: {pct_len}%; background: {bar_col};"></div>'
                                 else:
-                                    # ขาดทุน (ไปทางซ้าย)
                                     bar_div = f'<div class="div-bar-fill" style="right: 50%; width: {pct_len}%; background: {bar_col};"></div>'
 
-                                # สร้าง HTML Card
-                                rows_html += f"""
-                                <div class="magic-row" style="border-left: 3px solid {border_col};">
-                                    <div style="text-align:center; min-width:60px;">
-                                        <div style="font-weight:bold; color:#b0bec5; font-size:1rem;">{m_id}</div>
-                                        <div class="badge {badge_cls}">{m_type}</div>
+                                # ใช้ textwrap.dedent ในลูปย่อยด้วย
+                                rows_html += textwrap.dedent(f"""
+                                    <div class="magic-row" style="border-left: 3px solid {border_col};">
+                                        <div style="text-align:center; min-width:60px;">
+                                            <div style="font-weight:bold; color:#b0bec5; font-size:1rem;">{m_id}</div>
+                                            <div class="badge {badge_cls}">{m_type}</div>
+                                        </div>
+                                        
+                                        <div class="div-bar-track">
+                                            <div class="div-bar-center"></div>
+                                            {bar_div}
+                                        </div>
+                                        
+                                        <div style="text-align:right; min-width:80px;">
+                                            <div style="font-weight:bold; color:#fff;">{m_lots:.2f} <span style="font-size:0.7rem; color:#777;">LOT</span></div>
+                                            <div style="color:{bar_col}; font-weight:bold;">{m_profit:+,.0f} $</div>
+                                            <div style="font-size:0.7rem; color:#555;">CNT: {m_count}</div>
+                                        </div>
                                     </div>
-                                    
-                                    <div class="div-bar-track">
-                                        <div class="div-bar-center"></div>
-                                        {bar_div}
-                                    </div>
-                                    
-                                    <div style="text-align:right; min-width:80px;">
-                                        <div style="font-weight:bold; color:#fff;">{m_lots:.2f} <span style="font-size:0.7rem; color:#777;">LOT</span></div>
-                                        <div style="color:{bar_col}; font-weight:bold;">{m_profit:+,.0f} $</div>
-                                        <div style="font-size:0.7rem; color:#555;">CNT: {m_count}</div>
-                                    </div>
-                                </div>
-                                """
+                                """)
                             
                             st.markdown(rows_html, unsafe_allow_html=True)
                             
