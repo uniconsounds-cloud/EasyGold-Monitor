@@ -11,7 +11,7 @@ SHEET_ID = "ใส่_SHEET_ID_ของคุณตรงนี้"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor v5", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor v7", page_icon="🛸", layout="wide")
 
 # --- 1. CSS STYLING (Sci-Fi HUD Theme) ---
 st.markdown("""
@@ -31,7 +31,6 @@ st.markdown("""
     .bar-fill { height: 100%; transition: width 0.5s; }
     .bar-marker { position: absolute; top: -3px; width: 2px; height: 16px; background: white; z-index: 2; box-shadow: 0 0 5px white; }
 
-    /* Module Card */
     .module-card {
         background: rgba(255, 255, 255, 0.02);
         border: 1px solid #222; border-radius: 4px;
@@ -39,20 +38,17 @@ st.markdown("""
     }
     .module-id { font-weight: bold; color: #00e5ff; font-size: 0.95rem; margin-bottom: 8px; border-bottom: 1px solid #222; padding-bottom: 3px; }
 
-    /* Row 1: Profit Bar */
     .p-row { display: flex; align-items: center; height: 20px; margin-bottom: 12px; }
     .div-track { flex-grow: 1; height: 6px; background: #1a1a1a; position: relative; margin-right: 15px; }
     .div-center { position: absolute; left: 50%; width: 1px; height: 10px; top: -2px; background: #444; }
     .div-fill { height: 100%; position: absolute; }
 
-    /* Row 2: VU Meter */
     .vu-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
     .vu-meter { display: flex; gap: 3px; flex-grow: 1; margin-right: 15px; }
     .vu-tick { width: 4px; height: 14px; background: #1a1a1a; border-radius: 1px; }
     .vu-tick.active-buy { background: #00e676; box-shadow: 0 0 5px #00e676; }
     .vu-tick.active-sell { background: #ff1744; box-shadow: 0 0 5px #ff1744; }
 
-    /* Row 3: Price Scale */
     .scale-row { display: flex; align-items: center; justify-content: space-between; }
     .price-scale { flex-grow: 1; height: 25px; background: rgba(255,255,255,0.03); margin-right: 15px; position: relative; border-bottom: 1px solid #333; }
     .tick-order { position: absolute; width: 1px; height: 10px; background: #555; bottom: 0; }
@@ -61,6 +57,7 @@ st.markdown("""
     .tick-current { position: absolute; width: 1px; height: 25px; border-left: 1px dashed #00e5ff; top: -5px; z-index: 6; }
 
     .data-text { font-size: 0.9rem; font-weight: bold; white-space: nowrap; font-family: monospace; }
+    .section-title { font-size: 0.9rem; font-weight: 700; color: #E0E0E0; border-left: 4px solid #29B6F6; padding-left: 10px; margin-top: 25px; margin-bottom: 15px; text-transform: uppercase; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -150,27 +147,29 @@ else:
                     max_abs_prof = magic_stats['Profit'].abs().max() or 1
                     
                     for _, m in magic_stats.iterrows():
-                        # Row 1: Profit Bar
                         p_pct = (abs(m['Profit']) / max_abs_prof) * 50
                         p_col = "#00e676" if m['Profit'] >= 0 else "#ff1744"
                         p_style = f"left:50%; width:{p_pct}%; background:{p_col};" if m['Profit'] >= 0 else f"right:50%; width:{p_pct}%; background:{p_col};"
-
-                        # Row 2: VU Meter
                         num_ticks = min(m['Count'], 30)
                         active_cls = "active-buy" if m['Type'] == "Buy" else "active-sell"
                         vu_ticks_html = "".join([f'<div class="vu-tick {active_cls}"></div>' for _ in range(num_ticks)])
                         vu_ticks_html += "".join(['<div class="vu-tick"></div>' for _ in range(max(0, 30 - num_ticks))])
-
-                        # Row 3: Price Scale
+                        
                         all_vals = [m['MinP'], m['MaxP'], m['BEP'], price]
                         s_min, s_max = min(all_vals), max(all_vals)
                         s_range = (s_max - s_min) or 1
                         def get_pct(v): return ((v - s_min) / s_range) * 100
-                        
                         m_orders = orders_df[orders_df['Magic'] == m['Magic']]
                         order_ticks = "".join([f'<div class="tick-order {"tick-main" if op in [m["MinP"], m["MaxP"]] else ""}" style="left:{get_pct(op)}%"></div>' for op in m_orders['Open Price']])
                         
-                        dist = m['BEP'] - price if m['Type'] == 'Buy' else price - m['BEP']
+                        # 🔥 ปรับตรรกะ DIST ใหม่: ✅=Profit, ⚠️=Loss
+                        raw_dist = m['BEP'] - price if m['Type'] == 'Buy' else price - m['BEP']
+                        if raw_dist <= 0:
+                            dist_display = f"✅ {abs(raw_dist):,.2f}"
+                            dist_color = "#00e676"
+                        else:
+                            dist_display = f"⚠️ {abs(raw_dist):,.2f}"
+                            dist_color = "#FFA726" # สีส้ม
 
                         m_html = f"""
 <div class="module-card">
@@ -189,46 +188,44 @@ else:
             <div class="tick-order tick-be" style="left:{get_pct(m['BEP'])}%"></div>
             <div class="tick-current" style="left:{get_pct(price)}%"></div>
         </div>
-        <div class="data-text" style="color:#00e5ff">DIST: {dist:,.2f}</div>
+        <div class="data-text" style="color:{dist_color}">DIST: {dist_display}</div>
     </div>
 </div>
 """.strip()
                         st.markdown(m_html, unsafe_allow_html=True)
 
-                    # --- PART 3: PORTFOLIO STRUCTURE GRAPH (คืนค่ากลับมา) ---
-                    st.markdown('<div class="hud-label" style="margin-top:20px; margin-bottom:15px;">PORTFOLIO STRUCTURE MAP</div>', unsafe_allow_html=True)
-                    
+                    # --- PART 3: STRUCTURE GRAPH ---
+                    st.markdown('<div class="section-title">PORTFOLIO STRUCTURE MAP</div>', unsafe_allow_html=True)
                     fig_p = go.Figure()
-                    fig_p.add_hline(y=price, line_dash="dash", line_color="#29B6F6", line_width=1, annotation_text="Market Price", annotation_position="top right")
-                    
-                    # วาดโครงสร้างออเดอร์ราย Magic
+                    fig_p.add_hline(y=price, line_dash="dash", line_color="#29B6F6", line_width=1, annotation_text="Market", annotation_position="top right")
                     fig_p.add_trace(go.Scatter(x=orders_df['Magic'].astype(str), y=orders_df['Open Price'], mode='markers', marker=dict(symbol='line-ew', size=25, line=dict(width=1, color="rgba(255, 255, 255, 0.25)")), hoverinfo='skip'))
                     fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#D50000")), hoverinfo='skip'))
                     fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MinP'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")), hoverinfo='skip'))
                     fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['BEP'], mode='markers', marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), hoverinfo='skip'))
                     
-                    # ป้ายชื่อกำกับแต่ละแท่ง
                     labels = ["{}<br><span style='color:{}'>{}</span>:{}".format(m_id, ("#00C853" if t=="Buy" else "#ff1744"), t, c) for m_id, t, c in zip(magic_stats['Magic'], magic_stats['Type'], magic_stats['Count'])]
                     fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='text', text=labels, textposition="top center", textfont=dict(color='#E0E0E0', size=11), hoverinfo='skip'))
-
-                    fig_p.update_layout(
-                        xaxis=dict(showticklabels=False, type='category', gridcolor='#333'),
-                        yaxis=dict(gridcolor='#222', tickfont=dict(color='gray', size=10)),
-                        margin=dict(l=40, r=20, t=40, b=20), height=350, showlegend=False,
-                        paper_bgcolor='#050505', plot_bgcolor='#050505'
-                    )
+                    fig_p.update_layout(xaxis=dict(showticklabels=False, type='category', gridcolor='#333'), yaxis=dict(gridcolor='#222', tickfont=dict(color='gray', size=10)), margin=dict(l=40, r=20, t=40, b=20), height=350, showlegend=False, paper_bgcolor='#050505', plot_bgcolor='#050505')
                     st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
 
                     # --- PART 4: SUMMARY TABLE ---
-                    st.markdown('<div class="hud-label" style="margin-top:20px; margin-bottom:15px;">MISSION DATA LOG</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="hud-label" style="margin-top:20px; margin-bottom:15px;">MISSION DATA LOG SUMMARY</div>', unsafe_allow_html=True)
                     summary_df = magic_stats[['Magic', 'Type', 'Count', 'Lots', 'BEP', 'Profit']].copy()
-                    summary_df['Dist'] = summary_df.apply(lambda r: r['BEP'] - price if r['Type'] == 'Buy' else price - r['BEP'], axis=1)
+                    
+                    # ฟังก์ชันจัดรูปแบบ DIST ในตาราง
+                    def get_table_dist(row):
+                        d = row['BEP'] - price if row['Type'] == 'Buy' else price - row['BEP']
+                        if d <= 0: return f"✅ {abs(d):,.2f}"
+                        else: return f"⚠️ {abs(d):,.2f}"
+                    
+                    summary_df['DIST'] = summary_df.apply(get_table_dist, axis=1)
                     summary_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'BE_PRICE', 'PROFIT', 'DIST']
-                    for c in ['LOTS', 'BE_PRICE', 'PROFIT', 'DIST']: summary_df[c] = summary_df[c].map('{:,.2f}'.format)
+                    for c in ['LOTS', 'BE_PRICE', 'PROFIT']: summary_df[c] = summary_df[c].map('{:,.2f}'.format)
+                    
                     st.dataframe(summary_df.style.map(highlight_type, subset=['TYPE']), use_container_width=True, hide_index=True)
 
                 else:
-                    st.info("NO ACTIVE MODULES DETECTED")
+                    st.info("NO ACTIVE MODULES")
 
     except Exception as e:
         st.error(f"SYSTEM FAILURE: {e}")
