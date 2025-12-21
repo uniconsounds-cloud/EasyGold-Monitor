@@ -12,9 +12,9 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v16", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v17", page_icon="🛸", layout="wide")
 
-# --- 1. CSS STYLING (Sci-Fi HUD Theme - Refined Symmetry) ---
+# --- 1. CSS STYLING (Sci-Fi HUD Theme - Gold Edition) ---
 st.markdown("""
 <style>
 .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
@@ -107,11 +107,24 @@ else:
             if not target_df.empty:
                 latest = target_df.iloc[-1]
                 
-                # Core Data with 2 Decimals
+                # Core Data
                 price = float(latest.get('CurrentPrice', 0.0))
                 bal, eq, prof = float(latest.get('Balance', 0.0)), float(latest.get('Equity', 0.0)), float(latest.get('TotalProfit', 0.0))
                 lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
                 
+                # --- PRICE DIRECTION LOGIC ---
+                if 'prev_price' not in st.session_state:
+                    st.session_state.prev_price = price
+                
+                if price > st.session_state.prev_price:
+                    price_arrow = '<span style="color:#00e676; font-size:1.8rem; margin-left:10px; text-shadow:0 0 8px #00e676;">▲</span>'
+                elif price < st.session_state.prev_price:
+                    price_arrow = '<span style="color:#FFD700; font-size:1.8rem; margin-left:10px; text-shadow:0 0 8px #FFD700;">▼</span>'
+                else:
+                    price_arrow = '<span style="color:#546e7a; font-size:1.8rem; margin-left:10px;">—</span>'
+                
+                st.session_state.prev_price = price # Update for next rerun
+
                 # Health Bar Calculation
                 max_scale = max(bal, eq) * 1.2
                 eq_pct, bal_pct = (eq/max_scale)*100, (bal/max_scale)*100
@@ -121,14 +134,18 @@ else:
                     gold_width = bal_pct - eq_pct
                     gold_bar_html = f'<div class="main-bar-fill-gold" style="left: {eq_pct}%; width: {gold_width}%;"></div>'
 
-                # P/L Color
                 prof_color = "#00e676" if prof >= 0 else "#FFD700"
 
-                # --- PART 1: HUD HEADER (Symmetrical Layout) ---
+                # --- PART 1: HUD HEADER ---
                 h_html = f"""
 <div class="hud-box">
 <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
-<div><div class="hud-label">MARKET PRICE</div><div class="hud-value-blue">{price:,.2f}</div></div>
+<div>
+<div class="hud-label">MARKET PRICE</div>
+<div style="display:flex; align-items:center;">
+<div class="hud-value-blue">{price:,.2f}</div>{price_arrow}
+</div>
+</div>
 <div style="text-align:right;"><div class="hud-label">BALANCE</div><div class="hud-value-sub">{bal:,.2f}</div></div>
 </div>
 <div class="main-bar-container">
