@@ -12,33 +12,37 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v11", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v12", page_icon="🛸", layout="wide")
 
-# --- 1. CSS STYLING (Sci-Fi HUD Theme - Green & Gold) ---
+# --- 1. CSS STYLING (Sci-Fi HUD Theme - Balanced & Refined) ---
 st.markdown("""
 <style>
 .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
 header, footer { visibility: hidden; }
 .stApp { background-color: #050505; color: #e0f7fa; font-family: 'Courier New', Courier, monospace; }
 
+/* ส่วนหัว HUD หลัก */
 .hud-box {
     background: #0a0f14; border: 1px solid #333; border-radius: 4px;
     padding: 15px; margin-bottom: 15px; border-left: 4px solid #00e5ff;
 }
 .hud-label { font-size: 0.75rem; color: #546e7a; letter-spacing: 2px; font-weight: bold; text-transform: uppercase; }
-.hud-value { font-size: 2.2rem; color: #00e5ff; font-weight: bold; text-shadow: 0 0 10px rgba(0, 229, 255, 0.6); }
+.hud-value-blue { font-size: 2.2rem; color: #00e5ff; font-weight: bold; text-shadow: 0 0 10px rgba(0, 229, 255, 0.6); line-height: 1; }
+.hud-value-sub { font-size: 1.2rem; color: #aaa; font-weight: bold; }
 
-.bar-container { width: 100%; height: 10px; background: #1c2530; margin: 10px 0; position: relative; border-radius: 2px; }
-.bar-fill { height: 100%; transition: width 0.5s; }
-.bar-marker { position: absolute; top: -3px; width: 2px; height: 16px; background: white; z-index: 2; box-shadow: 0 0 5px white; }
+/* แถบพลังงานหลัก (ปรับความสูงเป็น 18px) */
+.main-bar-container { width: 100%; height: 18px; background: #1c2530; margin: 10px 0; position: relative; border-radius: 2px; overflow: hidden; }
+.main-bar-fill-blue { height: 100%; background: #00e5ff; box-shadow: 0 0 10px #00e5ff; position: absolute; z-index: 3; transition: width 0.5s; }
+.main-bar-fill-gold { height: 100%; background: #FFD600; box-shadow: 0 0 8px #FFD600; position: absolute; z-index: 2; transition: width 0.5s; }
+.main-bar-marker { position: absolute; top: -3px; width: 2px; height: 24px; background: white; z-index: 5; box-shadow: 0 0 5px white; }
 
+/* Module Card */
 .module-card {
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid #222; border-radius: 4px;
     padding: 12px; margin-bottom: 15px;
 }
 
-/* กรอบสี่เหลี่ยมสำหรับส่วนหัว */
 .id-row { display: flex; gap: 5px; margin-bottom: 12px; }
 .square-box {
     padding: 2px 8px; border: 1px solid #444; border-radius: 2px;
@@ -50,13 +54,11 @@ header, footer { visibility: hidden; }
 .box-lots { background: rgba(255, 167, 38, 0.1); color: #FFA726; border-color: #FFA726; }
 .box-count { background: rgba(255, 255, 255, 0.05); color: #fff; border-color: #555; }
 
-/* Profit Bar with White Center Line */
 .p-row { display: flex; align-items: center; margin-bottom: 15px; }
 .div-track { flex-grow: 1; height: 18px; background: #1a1a1a; position: relative; margin-right: 15px; border-radius: 2px; }
 .div-center { position: absolute; left: 50%; width: 2px; height: 24px; top: -3px; background: #fff; z-index: 2; box-shadow: 0 0 8px #fff; }
 .div-fill { height: 100%; position: absolute; border-radius: 1px; }
 
-/* VU Meter */
 .vu-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
 .vu-meter { display: flex; gap: 2px; flex-grow: 1; margin-right: 15px; height: 18px; align-items: center; overflow: hidden; }
 .vu-tick { width: 3px; height: 18px; background: #1a1a1a; border-radius: 1px; }
@@ -64,7 +66,6 @@ header, footer { visibility: hidden; }
 .vu-tick.active-gold { background: #FFD700; box-shadow: 0 0 5px #FFD700; }
 .vu-overflow { color: #FFD700; font-size: 1.1rem; margin-left: 5px; font-weight: bold; }
 
-/* Price Scale */
 .scale-row { display: flex; align-items: center; justify-content: space-between; }
 .price-scale { flex-grow: 1; height: 18px; background: rgba(255,255,255,0.03); margin-right: 15px; position: relative; border-bottom: 1px solid #333; }
 .tick-order { position: absolute; width: 1px; height: 12px; background: #555; bottom: 0; }
@@ -112,24 +113,39 @@ else:
                 bal, eq, prof = float(latest.get('Balance', 0.0)), float(latest.get('Equity', 0.0)), float(latest.get('TotalProfit', 0.0))
                 lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
                 
-                status_color = "#00e676" if prof >= 0 else "#FFD700"
+                # Health Bar Calculation
                 max_scale = max(bal, eq) * 1.2
-                eq_pct, bal_pct = (eq/max_scale)*100, (bal/max_scale)*100
+                eq_pct = (eq / max_scale) * 100 if max_scale > 0 else 0
+                bal_pct = (bal / max_scale) * 100 if max_scale > 0 else 0
+                
+                # Logic สำหรับ Gold Bar ส่วนต่างขาดทุน
+                gold_bar_html = ""
+                if eq < bal:
+                    # ถ้าขาดทุน: บาร์ทองจะเริ่มจากจุด Equity ไปจนถึงจุด Balance
+                    gold_width = bal_pct - eq_pct
+                    gold_bar_html = f'<div class="main-bar-fill-gold" style="left: {eq_pct}%; width: {gold_width}%;"></div>'
 
-                # --- PART 1: HUD HEADER ---
+                # --- PART 1: HUD HEADER (Refined Blue & Gold) ---
                 h_html = f"""
 <div class="hud-box">
 <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
-<div><div class="hud-label">MARKET PRICE</div><div class="hud-value">{price:,.2f}</div></div>
-<div style="text-align:right;"><div class="hud-label">NET EQUITY</div><div class="hud-value" style="color:{status_color}">{eq:,.0f}</div></div>
+<div><div class="hud-label">MARKET PRICE</div><div class="hud-value-blue">{price:,.2f}</div></div>
+<div style="text-align:right;">
+<div class="hud-label">BALANCE / EQUITY</div>
+<div style="display:flex; align-items:baseline; gap:10px; justify-content: flex-end;">
+<span class="hud-value-sub">{bal:,.0f}</span>
+<span class="hud-value-blue">{eq:,.0f}</span>
 </div>
-<div class="bar-container">
-<div class="bar-marker" style="left: {bal_pct}%"></div>
-<div class="bar-fill" style="width: {eq_pct}%; background: {status_color}; box-shadow: 0 0 8px {status_color};"></div>
+</div>
+</div>
+<div class="main-bar-container">
+<div class="main-bar-marker" style="left: {bal_pct}%"></div>
+<div class="main-bar-fill-blue" style="width: {eq_pct}%;"></div>
+{gold_bar_html}
 </div>
 <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-top:5px;">
 <div>EXPOSURE: <b style="color:#fff">{lots:.2f} LOTS</b></div>
-<div>NET P/L: <b style="color:{status_color}">{prof:+,.2f}</b></div>
+<div>NET P/L: <b style="color:{'#00e676' if prof >= 0 else '#FFD700'}">{prof:+,.2f}</b></div>
 </div>
 </div>"""
                 st.markdown(h_html, unsafe_allow_html=True)
@@ -207,7 +223,7 @@ else:
 </div>"""
                         st.markdown(m_html, unsafe_allow_html=True)
 
-                    # --- PART 3: STRUCTURE GRAPH (PROTECTED) ---
+                    # --- PART 3: STRUCTURE GRAPH ---
                     st.markdown('<div class="section-title">PORTFOLIO STRUCTURE MAP</div>', unsafe_allow_html=True)
                     
                     fig_p = go.Figure()
