@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 import time
+import plotly.graph_objects as go
 
 # ---------------------------------------------------------
 # 🛠 ใส่ SHEET ID ของคุณตรงนี้ 🛠
@@ -10,10 +11,9 @@ SHEET_ID = "ใส่_SHEET_ID_ของคุณตรงนี้"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor v4", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor v5", page_icon="🛸", layout="wide")
 
 # --- 1. CSS STYLING (Sci-Fi HUD Theme) ---
-# โหลด CSS แยกเพื่อป้องกันปัญหาย่อหน้า
 st.markdown("""
 <style>
     .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
@@ -136,12 +136,12 @@ else:
                     orders_df = pd.DataFrame(orders)
                     orders_df.rename(columns={'s': 'Symbol', 't': 'Type', 'v': 'Volume', 'p': 'Open Price', 'pl': 'Profit', 'm': 'Magic'}, inplace=True)
                     
-                    # คำนวณ BE Price
+                    # ประมวลผลกลุ่ม Magic
                     orders_df['WVal'] = orders_df['Volume'] * orders_df['Open Price']
                     magic_stats = orders_df.groupby('Magic').agg({
-                        'Type': 'first', 'Magic': 'count', 'Volume': 'sum', 'Profit': 'sum', 'Open Price': ['min', 'max', 'first', 'last']
+                        'Type': 'first', 'Magic': 'count', 'Volume': 'sum', 'Profit': 'sum', 'Open Price': ['min', 'max']
                     })
-                    magic_stats.columns = ['Type', 'Count', 'Lots', 'Profit', 'MinP', 'MaxP', 'FirstP', 'LastP']
+                    magic_stats.columns = ['Type', 'Count', 'Lots', 'Profit', 'MinP', 'MaxP']
                     magic_stats = magic_stats.reset_index()
                     
                     be_map = orders_df.groupby('Magic')['WVal'].sum() / orders_df.groupby('Magic')['Volume'].sum()
@@ -155,13 +155,13 @@ else:
                         p_col = "#00e676" if m['Profit'] >= 0 else "#ff1744"
                         p_style = f"left:50%; width:{p_pct}%; background:{p_col};" if m['Profit'] >= 0 else f"right:50%; width:{p_pct}%; background:{p_col};"
 
-                        # Row 2: VU Meter (max 30 ticks)
+                        # Row 2: VU Meter
                         num_ticks = min(m['Count'], 30)
                         active_cls = "active-buy" if m['Type'] == "Buy" else "active-sell"
                         vu_ticks_html = "".join([f'<div class="vu-tick {active_cls}"></div>' for _ in range(num_ticks)])
                         vu_ticks_html += "".join(['<div class="vu-tick"></div>' for _ in range(max(0, 30 - num_ticks))])
 
-                        # Row 3: Price Proportional Scale
+                        # Row 3: Price Scale
                         all_vals = [m['MinP'], m['MaxP'], m['BEP'], price]
                         s_min, s_max = min(all_vals), max(all_vals)
                         s_range = (s_max - s_min) or 1
@@ -195,16 +195,43 @@ else:
 """.strip()
                         st.markdown(m_html, unsafe_allow_html=True)
 
-                # --- PART 3: SUMMARY TABLE ---
-                st.markdown('<div class="hud-label" style="margin-top:20px; margin-bottom:15px;">TACTICAL DATA LOG</div>', unsafe_allow_html=True)
-                summary_df = magic_stats[['Magic', 'Type', 'Count', 'Lots', 'BEP', 'Profit']].copy()
-                summary_df['Dist'] = summary_df.apply(lambda r: r['BEP'] - price if r['Type'] == 'Buy' else price - r['BEP'], axis=1)
-                summary_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'BE_PRICE', 'PROFIT', 'DIST']
-                for c in ['LOTS', 'BE_PRICE', 'PROFIT', 'DIST']: summary_df[c] = summary_df[c].map('{:,.2f}'.format)
-                st.dataframe(summary_df.style.map(highlight_type, subset=['TYPE']), use_container_width=True, hide_index=True)
+                    # --- PART 3: PORTFOLIO STRUCTURE GRAPH (คืนค่ากลับมา) ---
+                    st.markdown('<div class="hud-label" style="margin-top:20px; margin-bottom:15px;">PORTFOLIO STRUCTURE MAP</div>', unsafe_allow_html=True)
+                    
+                    fig_p = go.Figure()
+                    fig_p.add_hline(y=price, line_dash="dash", line_color="#29B6F6", line_width=1, annotation_text="Market Price", annotation_position="top right")
+                    
+                    # วาดโครงสร้างออเดอร์ราย Magic
+                    fig_p.add_trace(go.Scatter(x=orders_df['Magic'].astype(str), y=orders_df['Open Price'], mode='markers', marker=dict(symbol='line-ew', size=25, line=dict(width=1, color="rgba(255, 255, 255, 0.25)")), hoverinfo='skip'))
+                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#D50000")), hoverinfo='skip'))
+                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MinP'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")), hoverinfo='skip'))
+                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['BEP'], mode='markers', marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), hoverinfo='skip'))
+                    
+                    # ป้ายชื่อกำกับแต่ละแท่ง
+                    labels = ["{}<br><span style='color:{}'>{}</span>:{}".format(m_id, ("#00C853" if t=="Buy" else "#ff1744"), t, c) for m_id, t, c in zip(magic_stats['Magic'], magic_stats['Type'], magic_stats['Count'])]
+                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='text', text=labels, textposition="top center", textfont=dict(color='#E0E0E0', size=11), hoverinfo='skip'))
+
+                    fig_p.update_layout(
+                        xaxis=dict(showticklabels=False, type='category', gridcolor='#333'),
+                        yaxis=dict(gridcolor='#222', tickfont=dict(color='gray', size=10)),
+                        margin=dict(l=40, r=20, t=40, b=20), height=350, showlegend=False,
+                        paper_bgcolor='#050505', plot_bgcolor='#050505'
+                    )
+                    st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
+
+                    # --- PART 4: SUMMARY TABLE ---
+                    st.markdown('<div class="hud-label" style="margin-top:20px; margin-bottom:15px;">MISSION DATA LOG</div>', unsafe_allow_html=True)
+                    summary_df = magic_stats[['Magic', 'Type', 'Count', 'Lots', 'BEP', 'Profit']].copy()
+                    summary_df['Dist'] = summary_df.apply(lambda r: r['BEP'] - price if r['Type'] == 'Buy' else price - r['BEP'], axis=1)
+                    summary_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'BE_PRICE', 'PROFIT', 'DIST']
+                    for c in ['LOTS', 'BE_PRICE', 'PROFIT', 'DIST']: summary_df[c] = summary_df[c].map('{:,.2f}'.format)
+                    st.dataframe(summary_df.style.map(highlight_type, subset=['TYPE']), use_container_width=True, hide_index=True)
+
+                else:
+                    st.info("NO ACTIVE MODULES DETECTED")
 
     except Exception as e:
-        st.error(f"SYSTEM CRITICAL ERROR: {e}")
+        st.error(f"SYSTEM FAILURE: {e}")
 
 time.sleep(5)
 st.rerun()
