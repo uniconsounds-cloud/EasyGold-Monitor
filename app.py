@@ -12,7 +12,7 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v10", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v11", page_icon="🛸", layout="wide")
 
 # --- 1. CSS STYLING (Sci-Fi HUD Theme - Green & Gold) ---
 st.markdown("""
@@ -38,6 +38,7 @@ header, footer { visibility: hidden; }
     padding: 12px; margin-bottom: 15px;
 }
 
+/* กรอบสี่เหลี่ยมสำหรับส่วนหัว */
 .id-row { display: flex; gap: 5px; margin-bottom: 12px; }
 .square-box {
     padding: 2px 8px; border: 1px solid #444; border-radius: 2px;
@@ -46,13 +47,16 @@ header, footer { visibility: hidden; }
 .box-magic { background: rgba(0, 229, 255, 0.1); color: #00e5ff; border-color: #00e5ff; }
 .box-buy { background: rgba(0, 230, 118, 0.1); color: #00e676; border-color: #00e676; }
 .box-gold { background: rgba(255, 215, 0, 0.1); color: #FFD700; border-color: #FFD700; }
+.box-lots { background: rgba(255, 167, 38, 0.1); color: #FFA726; border-color: #FFA726; }
 .box-count { background: rgba(255, 255, 255, 0.05); color: #fff; border-color: #555; }
 
+/* Profit Bar with White Center Line */
 .p-row { display: flex; align-items: center; margin-bottom: 15px; }
 .div-track { flex-grow: 1; height: 18px; background: #1a1a1a; position: relative; margin-right: 15px; border-radius: 2px; }
-.div-center { position: absolute; left: 50%; width: 1px; height: 24px; top: -3px; background: #444; z-index: 2; }
+.div-center { position: absolute; left: 50%; width: 2px; height: 24px; top: -3px; background: #fff; z-index: 2; box-shadow: 0 0 8px #fff; }
 .div-fill { height: 100%; position: absolute; border-radius: 1px; }
 
+/* VU Meter */
 .vu-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
 .vu-meter { display: flex; gap: 2px; flex-grow: 1; margin-right: 15px; height: 18px; align-items: center; overflow: hidden; }
 .vu-tick { width: 3px; height: 18px; background: #1a1a1a; border-radius: 1px; }
@@ -60,6 +64,7 @@ header, footer { visibility: hidden; }
 .vu-tick.active-gold { background: #FFD700; box-shadow: 0 0 5px #FFD700; }
 .vu-overflow { color: #FFD700; font-size: 1.1rem; margin-left: 5px; font-weight: bold; }
 
+/* Price Scale */
 .scale-row { display: flex; align-items: center; justify-content: space-between; }
 .price-scale { flex-grow: 1; height: 18px; background: rgba(255,255,255,0.03); margin-right: 15px; position: relative; border-bottom: 1px solid #333; }
 .tick-order { position: absolute; width: 1px; height: 12px; background: #555; bottom: 0; }
@@ -158,16 +163,12 @@ else:
                         p_col = "#00e676" if m['Profit'] >= 0 else "#FFD700"
                         p_style = f"left:50%; width:{p_pct}%; background:{p_col};" if m['Profit'] >= 0 else f"right:50%; width:{p_pct}%; background:{p_col};"
                         
-                        # --- Row 2: VU Meter (50 Ticks) ---
                         num_ticks = min(m['Count'], 50)
                         active_cls = "active-buy" if m['Type'] == "Buy" else "active-gold"
                         vu_ticks_html = "".join([f'<div class="vu-tick {active_cls}"></div>' for _ in range(num_ticks)])
                         vu_ticks_html += "".join(['<div class="vu-tick"></div>' for _ in range(max(0, 50 - num_ticks))])
-                        
-                        # เพิ่มสัญลักษณ์ลูกศรหากมากกว่า 50
                         overflow_html = '<span class="vu-overflow">▶</span>' if m['Count'] > 50 else ''
                         
-                        # --- Row 3: Price Scale & Tactical DIST Symbol ---
                         all_vals = [m['MinP'], m['MaxP'], m['BEP'], price]
                         s_min, s_max = min(all_vals), max(all_vals)
                         s_range = (s_max - s_min) or 1
@@ -185,6 +186,7 @@ else:
 <div class="id-row">
 <div class="square-box box-magic">{m['Magic']}</div>
 <div class="square-box {type_box_cls}">{m['Type']}</div>
+<div class="square-box box-lots">{m['Lots']:,.2f} L</div>
 </div>
 <div class="p-row">
 <div class="div-track"><div class="div-center"></div><div class="div-fill" style="{p_style} box-shadow: 0 0 5px {p_col}"></div></div>
@@ -205,8 +207,9 @@ else:
 </div>"""
                         st.markdown(m_html, unsafe_allow_html=True)
 
-                    # --- PART 3: STRUCTURE GRAPH ---
+                    # --- PART 3: STRUCTURE GRAPH (PROTECTED) ---
                     st.markdown('<div class="section-title">PORTFOLIO STRUCTURE MAP</div>', unsafe_allow_html=True)
+                    
                     fig_p = go.Figure()
                     fig_p.add_hline(y=price, line_dash="dash", line_color="#29B6F6", line_width=1, annotation_text="Market")
                     fig_p.add_trace(go.Scatter(x=orders_df['Magic'].astype(str), y=orders_df['Open Price'], mode='markers', marker=dict(symbol='line-ew', size=25, line=dict(width=1, color="rgba(255, 255, 255, 0.25)")), hoverinfo='skip'))
@@ -234,6 +237,7 @@ else:
                     summary_df['DIST'] = summary_df.apply(get_table_dist, axis=1)
                     summary_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'BE_PRICE', 'PROFIT', 'DIST']
                     for c in ['LOTS', 'BE_PRICE', 'PROFIT']: summary_df[c] = summary_df[c].map('{:,.2f}'.format)
+                    
                     st.dataframe(summary_df.style.map(lambda v: f'color: {"#00C853" if v == "Buy" else "#FFD700"}; font-weight: bold', subset=['TYPE']), use_container_width=True, hide_index=True)
 
                 else:
