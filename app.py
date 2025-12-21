@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import time
 import plotly.graph_objects as go
+import math
 
 # ---------------------------------------------------------
 # 🛠 ใส่ SHEET ID ของคุณตรงนี้ 🛠
@@ -11,7 +12,7 @@ SHEET_ID = "ใส่_SHEET_ID_ของคุณตรงนี้"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor v7", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor v8", page_icon="🛸", layout="wide")
 
 # --- 1. CSS STYLING (Sci-Fi HUD Theme) ---
 st.markdown("""
@@ -133,7 +134,6 @@ else:
                     orders_df = pd.DataFrame(orders)
                     orders_df.rename(columns={'s': 'Symbol', 't': 'Type', 'v': 'Volume', 'p': 'Open Price', 'pl': 'Profit', 'm': 'Magic'}, inplace=True)
                     
-                    # ประมวลผลกลุ่ม Magic
                     orders_df['WVal'] = orders_df['Volume'] * orders_df['Open Price']
                     magic_stats = orders_df.groupby('Magic').agg({
                         'Type': 'first', 'Magic': 'count', 'Volume': 'sum', 'Profit': 'sum', 'Open Price': ['min', 'max']
@@ -144,17 +144,33 @@ else:
                     be_map = orders_df.groupby('Magic')['WVal'].sum() / orders_df.groupby('Magic')['Volume'].sum()
                     magic_stats['BEP'] = magic_stats['Magic'].map(be_map)
                     
+                    # 🔥 ปรับส่วนการคำนวณ Max สำหรับสเกลแบบ Non-linear 🔥
+                    # ใช้ Square Root ในการคำนวณความยาวแถว
                     max_abs_prof = magic_stats['Profit'].abs().max() or 1
+                    max_sqrt_prof = math.sqrt(max_abs_prof)
                     
                     for _, m in magic_stats.iterrows():
-                        p_pct = (abs(m['Profit']) / max_abs_prof) * 50
+                        # --- Row 1: Profit Bar (Square Root Scaling) ---
+                        # สูตร: sqrt(ค่าปัจจุบัน) / sqrt(ค่าสูงสุด) * 50%
+                        # วิธีนี้จะทำให้ค่าที่น้อยๆ มีแถบที่ยาวขึ้นกว่าปกติเมื่อเทียบกับสเกลแบบเส้นตรง
+                        current_sqrt = math.sqrt(abs(m['Profit']))
+                        p_pct = (current_sqrt / max_sqrt_prof) * 50
+                        
+                        # กำหนดความกว้างขั้นต่ำ (Minimum Visibility) 
+                        # เพื่อให้แม้แต่กำไร $1 ก็ยังมองเห็นเป็นเส้นเล็กๆ
+                        if abs(m['Profit']) > 0 and p_pct < 2: 
+                            p_pct = 2 
+
                         p_col = "#00e676" if m['Profit'] >= 0 else "#ff1744"
                         p_style = f"left:50%; width:{p_pct}%; background:{p_col};" if m['Profit'] >= 0 else f"right:50%; width:{p_pct}%; background:{p_col};"
+                        
+                        # --- Row 2: VU Meter ---
                         num_ticks = min(m['Count'], 30)
                         active_cls = "active-buy" if m['Type'] == "Buy" else "active-sell"
                         vu_ticks_html = "".join([f'<div class="vu-tick {active_cls}"></div>' for _ in range(num_ticks)])
                         vu_ticks_html += "".join(['<div class="vu-tick"></div>' for _ in range(max(0, 30 - num_ticks))])
                         
+                        # --- Row 3: Price Proportional Scale & DIST ---
                         all_vals = [m['MinP'], m['MaxP'], m['BEP'], price]
                         s_min, s_max = min(all_vals), max(all_vals)
                         s_range = (s_max - s_min) or 1
@@ -162,14 +178,13 @@ else:
                         m_orders = orders_df[orders_df['Magic'] == m['Magic']]
                         order_ticks = "".join([f'<div class="tick-order {"tick-main" if op in [m["MinP"], m["MaxP"]] else ""}" style="left:{get_pct(op)}%"></div>' for op in m_orders['Open Price']])
                         
-                        # 🔥 ปรับตรรกะ DIST ใหม่: ✅=Profit, ⚠️=Loss
                         raw_dist = m['BEP'] - price if m['Type'] == 'Buy' else price - m['BEP']
                         if raw_dist <= 0:
                             dist_display = f"✅ {abs(raw_dist):,.2f}"
                             dist_color = "#00e676"
                         else:
                             dist_display = f"⚠️ {abs(raw_dist):,.2f}"
-                            dist_color = "#FFA726" # สีส้ม
+                            dist_color = "#FFA726"
 
                         m_html = f"""
 <div class="module-card">
@@ -211,17 +226,13 @@ else:
                     # --- PART 4: SUMMARY TABLE ---
                     st.markdown('<div class="hud-label" style="margin-top:20px; margin-bottom:15px;">MISSION DATA LOG SUMMARY</div>', unsafe_allow_html=True)
                     summary_df = magic_stats[['Magic', 'Type', 'Count', 'Lots', 'BEP', 'Profit']].copy()
-                    
-                    # ฟังก์ชันจัดรูปแบบ DIST ในตาราง
                     def get_table_dist(row):
                         d = row['BEP'] - price if row['Type'] == 'Buy' else price - row['BEP']
-                        if d <= 0: return f"✅ {abs(d):,.2f}"
-                        else: return f"⚠️ {abs(d):,.2f}"
+                        return f"✅ {abs(d):,.2f}" if d <= 0 else f"⚠️ {abs(d):,.2f}"
                     
                     summary_df['DIST'] = summary_df.apply(get_table_dist, axis=1)
                     summary_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'BE_PRICE', 'PROFIT', 'DIST']
                     for c in ['LOTS', 'BE_PRICE', 'PROFIT']: summary_df[c] = summary_df[c].map('{:,.2f}'.format)
-                    
                     st.dataframe(summary_df.style.map(highlight_type, subset=['TYPE']), use_container_width=True, hide_index=True)
 
                 else:
