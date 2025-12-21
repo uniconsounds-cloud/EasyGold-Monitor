@@ -12,7 +12,7 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v10", page_icon="🛸", layout="wide")
 
 # --- 1. CSS STYLING (Sci-Fi HUD Theme - Green & Gold) ---
 st.markdown("""
@@ -54,10 +54,11 @@ header, footer { visibility: hidden; }
 .div-fill { height: 100%; position: absolute; border-radius: 1px; }
 
 .vu-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
-.vu-meter { display: flex; gap: 3px; flex-grow: 1; margin-right: 15px; height: 18px; align-items: center; }
-.vu-tick { width: 4px; height: 18px; background: #1a1a1a; border-radius: 1px; }
+.vu-meter { display: flex; gap: 2px; flex-grow: 1; margin-right: 15px; height: 18px; align-items: center; overflow: hidden; }
+.vu-tick { width: 3px; height: 18px; background: #1a1a1a; border-radius: 1px; }
 .vu-tick.active-buy { background: #00e676; box-shadow: 0 0 5px #00e676; }
 .vu-tick.active-gold { background: #FFD700; box-shadow: 0 0 5px #FFD700; }
+.vu-overflow { color: #FFD700; font-size: 1.1rem; margin-left: 5px; font-weight: bold; }
 
 .scale-row { display: flex; align-items: center; justify-content: space-between; }
 .price-scale { flex-grow: 1; height: 18px; background: rgba(255,255,255,0.03); margin-right: 15px; position: relative; border-bottom: 1px solid #333; }
@@ -110,7 +111,7 @@ else:
                 max_scale = max(bal, eq) * 1.2
                 eq_pct, bal_pct = (eq/max_scale)*100, (bal/max_scale)*100
 
-                # --- PART 1: HUD HEADER (Zero Indentation) ---
+                # --- PART 1: HUD HEADER ---
                 h_html = f"""
 <div class="hud-box">
 <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
@@ -157,11 +158,16 @@ else:
                         p_col = "#00e676" if m['Profit'] >= 0 else "#FFD700"
                         p_style = f"left:50%; width:{p_pct}%; background:{p_col};" if m['Profit'] >= 0 else f"right:50%; width:{p_pct}%; background:{p_col};"
                         
-                        num_ticks = min(m['Count'], 30)
+                        # --- Row 2: VU Meter (50 Ticks) ---
+                        num_ticks = min(m['Count'], 50)
                         active_cls = "active-buy" if m['Type'] == "Buy" else "active-gold"
                         vu_ticks_html = "".join([f'<div class="vu-tick {active_cls}"></div>' for _ in range(num_ticks)])
-                        vu_ticks_html += "".join(['<div class="vu-tick"></div>' for _ in range(max(0, 30 - num_ticks))])
+                        vu_ticks_html += "".join(['<div class="vu-tick"></div>' for _ in range(max(0, 50 - num_ticks))])
                         
+                        # เพิ่มสัญลักษณ์ลูกศรหากมากกว่า 50
+                        overflow_html = '<span class="vu-overflow">▶</span>' if m['Count'] > 50 else ''
+                        
+                        # --- Row 3: Price Scale & Tactical DIST Symbol ---
                         all_vals = [m['MinP'], m['MaxP'], m['BEP'], price]
                         s_min, s_max = min(all_vals), max(all_vals)
                         s_range = (s_max - s_min) or 1
@@ -170,7 +176,7 @@ else:
                         order_ticks = "".join([f'<div class="tick-order {"tick-main" if op in [m["MinP"], m["MaxP"]] else ""}" style="left:{get_pct(op)}%"></div>' for op in m_orders['Open Price']])
                         
                         raw_dist = m['BEP'] - price if m['Type'] == 'Buy' else price - m['BEP']
-                        dist_display = f"✅ {abs(raw_dist):,.2f}" if raw_dist <= 0 else f"⚠️ {abs(raw_dist):,.2f}"
+                        dist_val = f"✅ {abs(raw_dist):,.2f}" if raw_dist <= 0 else f"⚠️ {abs(raw_dist):,.2f}"
                         dist_color = "#00e676" if raw_dist <= 0 else "#FFD700"
                         type_box_cls = "box-buy" if m['Type'] == "Buy" else "box-gold"
 
@@ -185,7 +191,7 @@ else:
 <div class="data-text" style="color:{p_col}">{m['Profit']:+,.2f}</div>
 </div>
 <div class="vu-row">
-<div class="vu-meter">{vu_ticks_html}</div>
+<div class="vu-meter">{vu_ticks_html}{overflow_html}</div>
 <div class="square-box box-count">{m['Count']}</div>
 </div>
 <div class="scale-row">
@@ -194,14 +200,13 @@ else:
 <div class="tick-order tick-be" style="left:{get_pct(m['BEP'])}%"></div>
 <div class="tick-current" style="left:{get_pct(price)}%"></div>
 </div>
-<div class="data-text" style="color:{dist_color}">DIST: {dist_display}</div>
+<div class="data-text" style="color:{dist_color}"><span style="font-size:1.1rem; vertical-align:middle;">↔</span> {dist_val}</div>
 </div>
 </div>"""
                         st.markdown(m_html, unsafe_allow_html=True)
 
-                    # --- PART 3: STRUCTURE GRAPH (PROTECTED) ---
+                    # --- PART 3: STRUCTURE GRAPH ---
                     st.markdown('<div class="section-title">PORTFOLIO STRUCTURE MAP</div>', unsafe_allow_html=True)
-                    
                     fig_p = go.Figure()
                     fig_p.add_hline(y=price, line_dash="dash", line_color="#29B6F6", line_width=1, annotation_text="Market")
                     fig_p.add_trace(go.Scatter(x=orders_df['Magic'].astype(str), y=orders_df['Open Price'], mode='markers', marker=dict(symbol='line-ew', size=25, line=dict(width=1, color="rgba(255, 255, 255, 0.25)")), hoverinfo='skip'))
@@ -229,7 +234,6 @@ else:
                     summary_df['DIST'] = summary_df.apply(get_table_dist, axis=1)
                     summary_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'BE_PRICE', 'PROFIT', 'DIST']
                     for c in ['LOTS', 'BE_PRICE', 'PROFIT']: summary_df[c] = summary_df[c].map('{:,.2f}'.format)
-                    
                     st.dataframe(summary_df.style.map(lambda v: f'color: {"#00C853" if v == "Buy" else "#FFD700"}; font-weight: bold', subset=['TYPE']), use_container_width=True, hide_index=True)
 
                 else:
