@@ -52,6 +52,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# --- HELPER FUNCTIONS (ย้ายออกมาข้างนอกเพื่อแก้ Error) ---
 def load_data():
     try:
         df = pd.read_csv(SHEET_URL)
@@ -60,6 +61,11 @@ def load_data():
         return df
     except:
         return None
+
+def highlight_type(val):
+    """ฟังก์ชันใส่สีตัวอักษรในตาราง"""
+    color = '#00C853' if val == 'Buy' else '#D50000'
+    return f'color: {color}; font-weight: bold'
 
 # =========================================================
 # Main Loop
@@ -115,7 +121,6 @@ else:
                 # --- SECTION 3: ACCOUNT HEALTH ---
                 st.markdown('<div class="section-header">Account Health</div>', unsafe_allow_html=True)
                 
-                # กำหนดขนาด Font ให้เท่ากันหมดที่นี่
                 BAR_FONT_SIZE = 16 
 
                 fig = go.Figure()
@@ -123,21 +128,17 @@ else:
                     fig.add_trace(go.Bar(x=[balance], y=[""], orientation='h', marker_color='#0288D1', hoverinfo='none'))
                     fig.add_trace(go.Bar(x=[profit], y=[""], orientation='h', marker_color='#00C853', hoverinfo='none', 
                                          text=f"Profit<br>{profit:,.0f}", textposition='inside', 
-                                         # ปรับขนาด Font ให้เท่า Balance
                                          textfont=dict(color='white', size=BAR_FONT_SIZE, family=common_font, weight='bold')))
                 else:
                     fig.add_trace(go.Bar(x=[equity], y=[""], orientation='h', marker_color='#0288D1', hoverinfo='none', 
                                          text=f"Equity<br>{equity:,.0f}", textposition='inside', 
-                                         # ปรับขนาด Font ให้เท่า Balance
                                          textfont=dict(color='white', size=BAR_FONT_SIZE, family=common_font, weight='bold')))
                     fig.add_trace(go.Bar(x=[abs(profit)], y=[""], orientation='h', marker_color='#D50000', hoverinfo='none', 
                                          text=f"Loss<br>{abs(profit):,.0f}", textposition='inside', 
-                                         # ปรับขนาด Font ให้เท่า Balance
                                          textfont=dict(color='white', size=BAR_FONT_SIZE, family=common_font, weight='bold')))
                 
                 fig.add_vline(x=balance, line_width=2, line_color="white", opacity=0.8)
                 
-                # ปรับขนาด Font Balance ให้เท่ากัน (Size 16 Bold)
                 fig.add_annotation(x=balance, y=0, yshift=28, text=f"Balance : {balance:,.0f}", xanchor='right', xshift=-5, showarrow=False, 
                                    font=dict(size=BAR_FONT_SIZE, color="white", family=common_font, weight="bold"))
                 
@@ -151,73 +152,4 @@ else:
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
 
                 # --- SECTION 4: PORTFOLIO STRUCTURE ---
-                st.markdown('<div class="section-header">Portfolio Structure</div>', unsafe_allow_html=True)
-                
-                orders_str = latest.get('JSON_Data', '[]')
-                if pd.isna(orders_str) or orders_str == "": orders_str = '[]'
-                
-                try:
-                    orders = json.loads(orders_str)
-                    if len(orders) > 0 and current_price > 0:
-                        orders_df = pd.DataFrame(orders)
-                        orders_df.rename(columns={'s': 'Symbol', 't': 'Type', 'v': 'Volume', 'p': 'Open Price', 'pl': 'Profit', 'm': 'Magic'}, inplace=True)
-                        
-                        if 'Magic' in orders_df.columns:
-                            orders_df['WeightedVal'] = orders_df['Volume'] * orders_df['Open Price']
-                            magic_stats = orders_df.groupby('Magic').agg(
-                                AvgPrice=('WeightedVal', 'sum'), TotalVol=('Volume', 'sum'),
-                                MinPrice=('Open Price', 'min'), MaxPrice=('Open Price', 'max'),
-                                OrderCount=('Magic', 'count'), OrderType=('Type', 'first')
-                            ).reset_index()
-                            magic_stats['AvgPrice'] = magic_stats['AvgPrice'] / magic_stats['TotalVol']
-                            
-                            fig_p = go.Figure()
-
-                            # 1. Market Price
-                            fig_p.add_hline(
-                                y=current_price, line_dash="dash", line_color="#29B6F6", line_width=1,
-                                annotation_text=f"Market: {current_price:,.2f}", annotation_position="top right", annotation_font=dict(color="#29B6F6", size=10)
-                            )
-
-                            # 2. Draw Elements
-                            fig_p.add_trace(go.Scatter(x=orders_df['Magic'].astype(str), y=orders_df['Open Price'], mode='markers', marker=dict(symbol='line-ew', size=25, line=dict(width=1, color="rgba(255, 255, 255, 0.25)")), hoverinfo='skip'))
-                            fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxPrice'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#D50000")), hoverinfo='skip'))
-                            fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MinPrice'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")), hoverinfo='skip'))
-                            fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['AvgPrice'], mode='markers', marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), hoverinfo='skip'))
-                            
-                            # 🔥 E. CUSTOM LABELS (Colored) 🔥
-                            # สร้างลิสต์ข้อความแบบ HTML โดยใส่สีให้คำว่า Buy/Sell
-                            label_texts = []
-                            for m, t, c in zip(magic_stats['Magic'], magic_stats['OrderType'], magic_stats['OrderCount']):
-                                # กำหนดสีตามประเภท
-                                color_code = "#00C853" if t == "Buy" else "#D50000" # เขียว / แดง
-                                # สร้าง String แบบ HTML
-                                text_html = f"{m}<br><span style='color:{color_code}'>{t}</span> : {c}"
-                                label_texts.append(text_html)
-
-                            fig_p.add_trace(go.Scatter(
-                                x=magic_stats['Magic'].astype(str), y=magic_stats['MaxPrice'], mode='text',
-                                text=label_texts, 
-                                textposition="top center",
-                                textfont=dict(color='#E0E0E0', size=11, family=common_font),
-                                hoverinfo='skip'
-                            ))
-
-                            fig_p.update_layout(
-                                xaxis=dict(showticklabels=False, type='category', gridcolor='#333'),
-                                yaxis=dict(title="Price Level", gridcolor='#222', tickfont=dict(color='gray', size=10)),
-                                margin=dict(l=40, r=20, t=50, b=20), height=400, showlegend=False,
-                                paper_bgcolor='#0E1117', plot_bgcolor='#0E1117'
-                            )
-                            st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
-
-                            # --- SECTION 5: MAGIC SUMMARY TABLE ---
-                            st.markdown('<div class="section-header">Magic Summary</div>', unsafe_allow_html=True)
-                            
-                            display_df = magic_stats[['Magic', 'OrderType', 'TotalVol', 'MinPrice', 'MaxPrice', 'AvgPrice']].copy()
-                            profit_df = orders_df.groupby('Magic')['Profit'].sum().reset_index()
-                            display_df = display_df.merge(profit_df, on='Magic')
-                            
-                            display_df.columns = ['MAGIC', 'TYPE', 'LOTS', 'MIN', 'MAX', 'AVG', 'PROFIT']
-                            for c in ['LOTS', 'MIN', 'MAX', 'AVG', 'PROFIT']: display_df[c] = display_df[c].map('{:,.2f}'.format)
-                            def
+                st.markdown('<div class="section-header">Portfolio
