@@ -63,7 +63,6 @@ def load_data():
         return None
 
 def highlight_type(val):
-    """ฟังก์ชันใส่สีตัวอักษรในตาราง แยกออกมาไว้ข้างนอกเพื่อป้องกัน Error"""
     color = '#00C853' if val == 'Buy' else '#D50000'
     return f'color: {color}; font-weight: bold'
 
@@ -121,32 +120,33 @@ else:
                 # --- SECTION 3: ACCOUNT HEALTH ---
                 st.markdown('<div class="section-header">Account Health</div>', unsafe_allow_html=True)
                 
-                BAR_FONT_SIZE = 16 
+                # 🔥 ปรับขนาด Font ให้ใหญ่เท่ากันทั้ง Balance และ Equity/Profit 🔥
+                TEXT_SIZE = 20  # ขนาดใหญ่ชัดเจน
 
                 fig = go.Figure()
                 if profit >= 0:
                     fig.add_trace(go.Bar(x=[balance], y=[""], orientation='h', marker_color='#0288D1', hoverinfo='none'))
                     fig.add_trace(go.Bar(x=[profit], y=[""], orientation='h', marker_color='#00C853', hoverinfo='none', 
                                          text=f"Profit<br>{profit:,.0f}", textposition='inside', 
-                                         textfont=dict(color='white', size=BAR_FONT_SIZE, family=common_font, weight='bold')))
+                                         textfont=dict(color='white', size=TEXT_SIZE, family=common_font, weight='bold')))
                 else:
                     fig.add_trace(go.Bar(x=[equity], y=[""], orientation='h', marker_color='#0288D1', hoverinfo='none', 
                                          text=f"Equity<br>{equity:,.0f}", textposition='inside', 
-                                         textfont=dict(color='white', size=BAR_FONT_SIZE, family=common_font, weight='bold')))
+                                         textfont=dict(color='white', size=TEXT_SIZE, family=common_font, weight='bold')))
                     fig.add_trace(go.Bar(x=[abs(profit)], y=[""], orientation='h', marker_color='#D50000', hoverinfo='none', 
                                          text=f"Loss<br>{abs(profit):,.0f}", textposition='inside', 
-                                         textfont=dict(color='white', size=BAR_FONT_SIZE, family=common_font, weight='bold')))
+                                         textfont=dict(color='white', size=TEXT_SIZE, family=common_font, weight='bold')))
                 
                 fig.add_vline(x=balance, line_width=2, line_color="white", opacity=0.8)
                 
                 fig.add_annotation(x=balance, y=0, yshift=28, text=f"Balance : {balance:,.0f}", xanchor='right', xshift=-5, showarrow=False, 
-                                   font=dict(size=BAR_FONT_SIZE, color="white", family=common_font, weight="bold"))
+                                   font=dict(size=TEXT_SIZE, color="white", family=common_font, weight="bold"))
                 
                 fig.update_layout(
                     barmode='stack', showlegend=False, 
                     xaxis=dict(visible=False, range=[0, max(balance, equity) * 1.15]), 
                     yaxis=dict(visible=False), 
-                    margin=dict(l=0, r=0, t=35, b=0), height=90, 
+                    margin=dict(l=0, r=0, t=35, b=0), height=100, # เพิ่มความสูงนิดหน่อยรองรับ Font ใหญ่
                     paper_bgcolor='#0E1117', plot_bgcolor='#0E1117'
                 )
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
@@ -186,11 +186,12 @@ else:
                             fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MinPrice'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")), hoverinfo='skip'))
                             fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['AvgPrice'], mode='markers', marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), hoverinfo='skip'))
                             
-                            # E. CUSTOM LABELS (Colored)
+                            # E. CUSTOM LABELS (Lifted Up)
                             label_texts = []
                             for m, t, c in zip(magic_stats['Magic'], magic_stats['OrderType'], magic_stats['OrderCount']):
                                 color_code = "#00C853" if t == "Buy" else "#D50000"
-                                text_html = f"{m}<br><span style='color:{color_code}'>{t}</span> : {c}"
+                                # 🔥 เพิ่ม <br> ต่อท้าย 2 ครั้ง เพื่อดันข้อความให้ลอยสูงขึ้นไปอีก 🔥
+                                text_html = f"{m}<br><span style='color:{color_code}'>{t}</span> : {c}<br><br>"
                                 label_texts.append(text_html)
 
                             fig_p.add_trace(go.Scatter(
@@ -204,7 +205,8 @@ else:
                             fig_p.update_layout(
                                 xaxis=dict(showticklabels=False, type='category', gridcolor='#333'),
                                 yaxis=dict(title="Price Level", gridcolor='#222', tickfont=dict(color='gray', size=10)),
-                                margin=dict(l=40, r=20, t=50, b=20), height=400, showlegend=False,
+                                margin=dict(l=40, r=20, t=60, b=20), # เพิ่ม t (Top Margin) เพื่อให้มีที่ว่างสำหรับข้อความที่ลอยขึ้นไป
+                                height=420, showlegend=False,
                                 paper_bgcolor='#0E1117', plot_bgcolor='#0E1117'
                             )
                             st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
