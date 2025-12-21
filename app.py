@@ -37,7 +37,17 @@ st.markdown("""
         border: 1px solid #222; border-radius: 4px;
         padding: 12px; margin-bottom: 15px;
     }
-    .module-id { font-weight: bold; color: #00e5ff; font-size: 0.95rem; margin-bottom: 10px; border-bottom: 1px solid #222; padding-bottom: 5px; }
+    
+    /* กรอบสี่เหลี่ยมสำหรับส่วนหัวและตัวเลข */
+    .id-row { display: flex; gap: 5px; margin-bottom: 12px; }
+    .square-box {
+        padding: 2px 8px; border: 1px solid #444; border-radius: 2px;
+        font-weight: bold; font-size: 0.9rem; font-family: monospace;
+    }
+    .box-magic { background: rgba(0, 229, 255, 0.1); color: #00e5ff; border-color: #00e5ff; }
+    .box-buy { background: rgba(0, 230, 118, 0.1); color: #00e676; border-color: #00e676; text-transform: uppercase; }
+    .box-gold { background: rgba(255, 215, 0, 0.1); color: #FFD700; border-color: #FFD700; text-transform: uppercase; }
+    .box-count { background: rgba(255, 255, 255, 0.05); color: #fff; border-color: #555; }
 
     /* Standardized Height: 18px */
     .p-row { display: flex; align-items: center; margin-bottom: 15px; }
@@ -49,7 +59,7 @@ st.markdown("""
     .vu-meter { display: flex; gap: 3px; flex-grow: 1; margin-right: 15px; height: 18px; align-items: center; }
     .vu-tick { width: 4px; height: 18px; background: #1a1a1a; border-radius: 1px; }
     .vu-tick.active-buy { background: #00e676; box-shadow: 0 0 5px #00e676; }
-    .vu-tick.active-gold { background: #FFD700; box-shadow: 0 0 5px #FFD700; } /* เปลี่ยนจากแดงเป็นทอง */
+    .vu-tick.active-gold { background: #FFD700; box-shadow: 0 0 5px #FFD700; }
 
     .scale-row { display: flex; align-items: center; justify-content: space-between; }
     .price-scale { flex-grow: 1; height: 18px; background: rgba(255,255,255,0.03); margin-right: 15px; position: relative; border-bottom: 1px solid #333; }
@@ -57,10 +67,6 @@ st.markdown("""
     .tick-main { width: 2px; height: 18px; background: #fff; box-shadow: 0 0 5px #fff; z-index: 3; bottom: 0; }
     .tick-be { width: 3px; height: 22px; background: #FFD600; box-shadow: 0 0 8px #FFD600; z-index: 5; bottom: -2px; }
     .tick-current { position: absolute; width: 1px; height: 28px; border-left: 1px dashed #00e5ff; top: -5px; z-index: 6; }
-
-    .badge { padding: 3px 8px; font-size: 0.75rem; font-weight: bold; border-radius: 2px; min-width: 50px; text-align: center; }
-    .badge-buy { background: rgba(0, 230, 118, 0.15); color: #00e676; border: 1px solid #00e676; }
-    .badge-gold { background: rgba(255, 215, 0, 0.15); color: #FFD700; border: 1px solid #FFD700; }
 
     .data-text { font-size: 0.9rem; font-weight: bold; white-space: nowrap; font-family: monospace; line-height: 18px; }
     .section-title { font-size: 0.9rem; font-weight: 700; color: #E0E0E0; border-left: 4px solid #29B6F6; padding-left: 10px; margin-top: 25px; margin-bottom: 15px; text-transform: uppercase; }
@@ -77,7 +83,6 @@ def load_data():
     except: return None
 
 def highlight_type(val):
-    # เปลี่ยนสีในตารางเป็น เขียว-ทอง
     color = '#00C853' if val == 'Buy' else '#FFD700'
     return f'color: {color}; font-weight: bold'
 
@@ -106,7 +111,6 @@ else:
                 bal, eq, prof = float(latest.get('Balance', 0.0)), float(latest.get('Equity', 0.0)), float(latest.get('TotalProfit', 0.0))
                 lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
                 
-                # สีหลัก (ถ้ากำไรเขียว ขาดทุนทอง)
                 status_color = "#00e676" if prof >= 0 else "#FFD700"
                 max_scale = max(bal, eq) * 1.2
                 eq_pct, bal_pct = (eq/max_scale)*100, (bal/max_scale)*100
@@ -130,7 +134,7 @@ else:
 """.strip()
                 st.markdown(h_html, unsafe_allow_html=True)
 
-                # --- PART 2: ACTIVE MODULES (Balanced & Golden) ---
+                # --- PART 2: ACTIVE MODULES (Grid Boxes & Clean Text) ---
                 st.markdown('<div class="hud-label" style="margin-top:10px; margin-bottom:15px;">ACTIVE MODULE ANALYSIS</div>', unsafe_allow_html=True)
                 
                 orders_str = latest.get('JSON_Data', '[]')
@@ -154,7 +158,7 @@ else:
                     max_sqrt_prof = math.sqrt(max_abs_prof)
                     
                     for _, m in magic_stats.iterrows():
-                        # Row 1: Profit Bar (Green-Gold)
+                        # Row 1: Profit Bar Scaling
                         current_sqrt = math.sqrt(abs(m['Profit']))
                         p_pct = (current_sqrt / max_sqrt_prof) * 50
                         if abs(m['Profit']) > 0 and p_pct < 2: p_pct = 2 
@@ -167,7 +171,7 @@ else:
                         vu_ticks_html = "".join([f'<div class="vu-tick {active_cls}"></div>' for _ in range(num_ticks)])
                         vu_ticks_html += "".join(['<div class="vu-tick"></div>' for _ in range(max(0, 30 - num_ticks))])
                         
-                        # Row 3: Price Scale
+                        # Row 3: Scale & Status
                         all_vals = [m['MinP'], m['MaxP'], m['BEP'], price]
                         s_min, s_max = min(all_vals), max(all_vals)
                         s_range = (s_max - s_min) or 1
@@ -176,22 +180,29 @@ else:
                         order_ticks = "".join([f'<div class="tick-order {"tick-main" if op in [m["MinP"], m["MaxP"]] else ""}" style="left:{get_pct(op)}%"></div>' for op in m_orders['Open Price']])
                         
                         raw_dist = m['BEP'] - price if m['Type'] == 'Buy' else price - m['BEP']
-                        if raw_dist <= 0:
-                            dist_display, dist_color = f"✅ {abs(raw_dist):,.2f}", "#00e676"
-                        else:
-                            dist_display, dist_color = f"⚠️ {abs(raw_dist):,.2f}", "#FFD700" # ขาดทุนเป็นทอง
+                        dist_display = f"✅ {abs(raw_dist):,.2f}" if raw_dist <= 0 else f"⚠️ {abs(raw_dist):,.2f}"
+                        dist_color = "#00e676" if raw_dist <= 0 else "#FFD700"
+
+                        # เลือกสีกล่องประเภท
+                        type_box_cls = "box-buy" if m['Type'] == "Buy" else "box-gold"
 
                         m_html = f"""
 <div class="module-card">
-    <div class="module-id">MODULE_UNIT: {m['Magic']}</div>
+    <div class="id-row">
+        <div class="square-box box-magic">{m['Magic']}</div>
+        <div class="square-box {type_box_cls}">{m['Type']}</div>
+    </div>
+    
     <div class="p-row">
         <div class="div-track"><div class="div-center"></div><div class="div-fill" style="{p_style} box-shadow: 0 0 5px {p_col}"></div></div>
-        <div class="data-text" style="color:{p_col}">{m['Profit']:+,.2f} USD</div>
+        <div class="data-text" style="color:{p_col}">{m['Profit']:+,.2f}</div>
     </div>
+    
     <div class="vu-row">
         <div class="vu-meter">{vu_ticks_html}</div>
-        <div class="data-text"><span style="color:{p_col}">{m['Type']}</span> : {m['Count']} PCS</div>
+        <div class="square-box box-count">{m['Count']}</div>
     </div>
+    
     <div class="scale-row">
         <div class="price-scale">
             {order_ticks}
@@ -209,8 +220,6 @@ else:
                     fig_p = go.Figure()
                     fig_p.add_hline(y=price, line_dash="dash", line_color="#29B6F6", line_width=1, annotation_text="Market")
                     fig_p.add_trace(go.Scatter(x=orders_df['Magic'].astype(str), y=orders_df['Open Price'], mode='markers', marker=dict(symbol='line-ew', size=25, line=dict(width=1, color="rgba(255, 255, 255, 0.25)")), hoverinfo='skip'))
-                    
-                    # เปลี่ยน MaxP จากแดงเป็นทอง
                     fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#FFD700")), hoverinfo='skip'))
                     fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MinP'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")), hoverinfo='skip'))
                     fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['BEP'], mode='markers', marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), hoverinfo='skip'))
