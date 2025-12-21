@@ -12,9 +12,9 @@ SHEET_ID = "ใส่_SHEET_ID_ของคุณตรงนี้"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor v8", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor v9", page_icon="🛸", layout="wide")
 
-# --- 1. CSS STYLING (Sci-Fi HUD Theme) ---
+# --- 1. CSS STYLING (Sci-Fi HUD Theme - Balanced Heights) ---
 st.markdown("""
 <style>
     .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
@@ -37,27 +37,32 @@ st.markdown("""
         border: 1px solid #222; border-radius: 4px;
         padding: 12px; margin-bottom: 15px;
     }
-    .module-id { font-weight: bold; color: #00e5ff; font-size: 0.95rem; margin-bottom: 8px; border-bottom: 1px solid #222; padding-bottom: 3px; }
+    .module-id { font-weight: bold; color: #00e5ff; font-size: 0.95rem; margin-bottom: 10px; border-bottom: 1px solid #222; padding-bottom: 5px; }
 
-    .p-row { display: flex; align-items: center; height: 20px; margin-bottom: 12px; }
-    .div-track { flex-grow: 1; height: 6px; background: #1a1a1a; position: relative; margin-right: 15px; }
-    .div-center { position: absolute; left: 50%; width: 1px; height: 10px; top: -2px; background: #444; }
-    .div-fill { height: 100%; position: absolute; }
+    /* --- ปรับความสูงให้เท่ากันทุกแถว (Standardized Height: 18px) --- */
+    
+    /* Row 1: Profit Bar */
+    .p-row { display: flex; align-items: center; margin-bottom: 15px; }
+    .div-track { flex-grow: 1; height: 18px; background: #1a1a1a; position: relative; margin-right: 15px; border-radius: 2px; }
+    .div-center { position: absolute; left: 50%; width: 1px; height: 24px; top: -3px; background: #444; z-index: 2; }
+    .div-fill { height: 100%; position: absolute; border-radius: 1px; }
 
-    .vu-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-    .vu-meter { display: flex; gap: 3px; flex-grow: 1; margin-right: 15px; }
-    .vu-tick { width: 4px; height: 14px; background: #1a1a1a; border-radius: 1px; }
+    /* Row 2: VU Meter */
+    .vu-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+    .vu-meter { display: flex; gap: 3px; flex-grow: 1; margin-right: 15px; height: 18px; align-items: center; }
+    .vu-tick { width: 4px; height: 18px; background: #1a1a1a; border-radius: 1px; }
     .vu-tick.active-buy { background: #00e676; box-shadow: 0 0 5px #00e676; }
     .vu-tick.active-sell { background: #ff1744; box-shadow: 0 0 5px #ff1744; }
 
+    /* Row 3: Price Structure Map */
     .scale-row { display: flex; align-items: center; justify-content: space-between; }
-    .price-scale { flex-grow: 1; height: 25px; background: rgba(255,255,255,0.03); margin-right: 15px; position: relative; border-bottom: 1px solid #333; }
-    .tick-order { position: absolute; width: 1px; height: 10px; background: #555; bottom: 0; }
-    .tick-main { width: 2px; height: 16px; background: #fff; box-shadow: 0 0 5px #fff; z-index: 3; }
-    .tick-be { width: 3px; height: 20px; background: #FFD600; box-shadow: 0 0 8px #FFD600; z-index: 5; bottom: 0; }
-    .tick-current { position: absolute; width: 1px; height: 25px; border-left: 1px dashed #00e5ff; top: -5px; z-index: 6; }
+    .price-scale { flex-grow: 1; height: 18px; background: rgba(255,255,255,0.03); margin-right: 15px; position: relative; border-bottom: 1px solid #333; }
+    .tick-order { position: absolute; width: 1px; height: 12px; background: #555; bottom: 0; }
+    .tick-main { width: 2px; height: 18px; background: #fff; box-shadow: 0 0 5px #fff; z-index: 3; bottom: 0; }
+    .tick-be { width: 3px; height: 22px; background: #FFD600; box-shadow: 0 0 8px #FFD600; z-index: 5; bottom: -2px; }
+    .tick-current { position: absolute; width: 1px; height: 28px; border-left: 1px dashed #00e5ff; top: -5px; z-index: 6; }
 
-    .data-text { font-size: 0.9rem; font-weight: bold; white-space: nowrap; font-family: monospace; }
+    .data-text { font-size: 0.9rem; font-weight: bold; white-space: nowrap; font-family: monospace; line-height: 18px; }
     .section-title { font-size: 0.9rem; font-weight: 700; color: #E0E0E0; border-left: 4px solid #29B6F6; padding-left: 10px; margin-top: 25px; margin-bottom: 15px; text-transform: uppercase; }
 </style>
 """, unsafe_allow_html=True)
@@ -96,7 +101,7 @@ else:
             if not target_df.empty:
                 latest = target_df.iloc[-1]
                 
-                # ข้อมูลหลัก
+                # Extract Core Data
                 price = float(latest.get('CurrentPrice', 0.0))
                 bal, eq, prof = float(latest.get('Balance', 0.0)), float(latest.get('Equity', 0.0)), float(latest.get('TotalProfit', 0.0))
                 lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
@@ -124,7 +129,7 @@ else:
 """.strip()
                 st.markdown(h_html, unsafe_allow_html=True)
 
-                # --- PART 2: ACTIVE MODULES (3-ROW INFOGRAPHIC) ---
+                # --- PART 2: ACTIVE MODULES (Balanced Height Tactic) ---
                 st.markdown('<div class="hud-label" style="margin-top:10px; margin-bottom:15px;">ACTIVE MODULE ANALYSIS</div>', unsafe_allow_html=True)
                 
                 orders_str = latest.get('JSON_Data', '[]')
@@ -144,33 +149,25 @@ else:
                     be_map = orders_df.groupby('Magic')['WVal'].sum() / orders_df.groupby('Magic')['Volume'].sum()
                     magic_stats['BEP'] = magic_stats['Magic'].map(be_map)
                     
-                    # 🔥 ปรับส่วนการคำนวณ Max สำหรับสเกลแบบ Non-linear 🔥
-                    # ใช้ Square Root ในการคำนวณความยาวแถว
+                    # Square Root Scaling for Profit Bars
                     max_abs_prof = magic_stats['Profit'].abs().max() or 1
                     max_sqrt_prof = math.sqrt(max_abs_prof)
                     
                     for _, m in magic_stats.iterrows():
-                        # --- Row 1: Profit Bar (Square Root Scaling) ---
-                        # สูตร: sqrt(ค่าปัจจุบัน) / sqrt(ค่าสูงสุด) * 50%
-                        # วิธีนี้จะทำให้ค่าที่น้อยๆ มีแถบที่ยาวขึ้นกว่าปกติเมื่อเทียบกับสเกลแบบเส้นตรง
+                        # Row 1: Profit Bar
                         current_sqrt = math.sqrt(abs(m['Profit']))
                         p_pct = (current_sqrt / max_sqrt_prof) * 50
-                        
-                        # กำหนดความกว้างขั้นต่ำ (Minimum Visibility) 
-                        # เพื่อให้แม้แต่กำไร $1 ก็ยังมองเห็นเป็นเส้นเล็กๆ
-                        if abs(m['Profit']) > 0 and p_pct < 2: 
-                            p_pct = 2 
-
+                        if abs(m['Profit']) > 0 and p_pct < 2: p_pct = 2 
                         p_col = "#00e676" if m['Profit'] >= 0 else "#ff1744"
                         p_style = f"left:50%; width:{p_pct}%; background:{p_col};" if m['Profit'] >= 0 else f"right:50%; width:{p_pct}%; background:{p_col};"
                         
-                        # --- Row 2: VU Meter ---
+                        # Row 2: VU Meter (Now 18px height)
                         num_ticks = min(m['Count'], 30)
                         active_cls = "active-buy" if m['Type'] == "Buy" else "active-sell"
                         vu_ticks_html = "".join([f'<div class="vu-tick {active_cls}"></div>' for _ in range(num_ticks)])
                         vu_ticks_html += "".join(['<div class="vu-tick"></div>' for _ in range(max(0, 30 - num_ticks))])
                         
-                        # --- Row 3: Price Proportional Scale & DIST ---
+                        # Row 3: Price Proportional Scale
                         all_vals = [m['MinP'], m['MaxP'], m['BEP'], price]
                         s_min, s_max = min(all_vals), max(all_vals)
                         s_range = (s_max - s_min) or 1
@@ -180,11 +177,9 @@ else:
                         
                         raw_dist = m['BEP'] - price if m['Type'] == 'Buy' else price - m['BEP']
                         if raw_dist <= 0:
-                            dist_display = f"✅ {abs(raw_dist):,.2f}"
-                            dist_color = "#00e676"
+                            dist_display, dist_color = f"✅ {abs(raw_dist):,.2f}", "#00e676"
                         else:
-                            dist_display = f"⚠️ {abs(raw_dist):,.2f}"
-                            dist_color = "#FFA726"
+                            dist_display, dist_color = f"⚠️ {abs(raw_dist):,.2f}", "#FFA726"
 
                         m_html = f"""
 <div class="module-card">
@@ -229,14 +224,10 @@ else:
                     def get_table_dist(row):
                         d = row['BEP'] - price if row['Type'] == 'Buy' else price - row['BEP']
                         return f"✅ {abs(d):,.2f}" if d <= 0 else f"⚠️ {abs(d):,.2f}"
-                    
                     summary_df['DIST'] = summary_df.apply(get_table_dist, axis=1)
                     summary_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'BE_PRICE', 'PROFIT', 'DIST']
                     for c in ['LOTS', 'BE_PRICE', 'PROFIT']: summary_df[c] = summary_df[c].map('{:,.2f}'.format)
                     st.dataframe(summary_df.style.map(highlight_type, subset=['TYPE']), use_container_width=True, hide_index=True)
-
-                else:
-                    st.info("NO ACTIVE MODULES")
 
     except Exception as e:
         st.error(f"SYSTEM FAILURE: {e}")
