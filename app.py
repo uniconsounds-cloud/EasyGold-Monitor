@@ -169,7 +169,18 @@ else:
                                 MinPrice=('Open Price', 'min'), MaxPrice=('Open Price', 'max'),
                                 OrderCount=('Magic', 'count'), OrderType=('Type', 'first')
                             ).reset_index()
+                            
+                            # คำนวณ Avg Price (BE Price)
                             magic_stats['AvgPrice'] = magic_stats['AvgPrice'] / magic_stats['TotalVol']
+                            
+                            # คำนวณ Distance (ระยะห่างจากราคาปัจจุบัน)
+                            def calc_dist(row):
+                                if row['OrderType'] == 'Buy':
+                                    return row['AvgPrice'] - current_price # ถ้า Buy: ราคาเป้า - ราคาปัจจุบัน
+                                else:
+                                    return current_price - row['AvgPrice'] # ถ้า Sell: ราคาปัจจุบัน - ราคาเป้า
+                                    
+                            magic_stats['Dist'] = magic_stats.apply(calc_dist, axis=1)
                             
                             fig_p = go.Figure()
 
@@ -185,18 +196,17 @@ else:
                             fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MinPrice'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")), hoverinfo='skip'))
                             fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['AvgPrice'], mode='markers', marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), hoverinfo='skip'))
                             
-                            # E. CUSTOM LABELS (Fixed Position)
+                            # E. CUSTOM LABELS
                             label_texts = []
                             for m, t, c in zip(magic_stats['Magic'], magic_stats['OrderType'], magic_stats['OrderCount']):
                                 color_code = "#00C853" if t == "Buy" else "#D50000"
-                                # 🔥 เอา <br> ท้ายสุดออก เพื่อไม่ให้สูงเกินไป 🔥
                                 text_html = f"{m}<br><span style='color:{color_code}'>{t}</span> : {c}"
                                 label_texts.append(text_html)
 
                             fig_p.add_trace(go.Scatter(
                                 x=magic_stats['Magic'].astype(str), y=magic_stats['MaxPrice'], mode='text',
                                 text=label_texts, 
-                                textposition="top center", # ตำแหน่งธรรมชาติ อยู่เหนือจุดเล็กน้อย
+                                textposition="top center",
                                 textfont=dict(color='#E0E0E0', size=11, family=common_font),
                                 hoverinfo='skip'
                             ))
@@ -204,8 +214,7 @@ else:
                             fig_p.update_layout(
                                 xaxis=dict(showticklabels=False, type='category', gridcolor='#333'),
                                 yaxis=dict(title="Price Level", gridcolor='#222', tickfont=dict(color='gray', size=10)),
-                                margin=dict(l=40, r=20, t=50, b=20), # ลด Top margin ลงให้พอดี
-                                height=400, showlegend=False,
+                                margin=dict(l=40, r=20, t=50, b=20), height=400, showlegend=False,
                                 paper_bgcolor='#0E1117', plot_bgcolor='#0E1117'
                             )
                             st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
@@ -213,15 +222,15 @@ else:
                             # --- SECTION 5: MAGIC SUMMARY TABLE ---
                             st.markdown('<div class="section-header">Magic Summary</div>', unsafe_allow_html=True)
                             
-                            # 🔥 เพิ่ม OrderCount เข้าไปในตาราง 🔥
-                            display_df = magic_stats[['Magic', 'OrderType', 'OrderCount', 'TotalVol', 'MinPrice', 'MaxPrice', 'AvgPrice']].copy()
+                            display_df = magic_stats[['Magic', 'OrderType', 'OrderCount', 'TotalVol', 'AvgPrice', 'Dist']].copy()
                             profit_df = orders_df.groupby('Magic')['Profit'].sum().reset_index()
                             display_df = display_df.merge(profit_df, on='Magic')
                             
-                            # ตั้งชื่อคอลัมน์ใหม่ เพิ่ม ORDERS
-                            display_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'MIN', 'MAX', 'AVG', 'PROFIT']
+                            # ตั้งชื่อคอลัมน์ใหม่ (AVG -> BE PRICE, เพิ่ม DIST)
+                            display_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'BE PRICE', 'DIST', 'PROFIT']
                             
-                            for c in ['LOTS', 'MIN', 'MAX', 'AVG', 'PROFIT']: 
+                            # Format ตัวเลข
+                            for c in ['LOTS', 'BE PRICE', 'DIST', 'PROFIT']: 
                                 display_df[c] = display_df[c].map('{:,.2f}'.format)
                             
                             st.dataframe(
