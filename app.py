@@ -120,8 +120,7 @@ else:
                 # --- SECTION 3: ACCOUNT HEALTH ---
                 st.markdown('<div class="section-header">Account Health</div>', unsafe_allow_html=True)
                 
-                # 🔥 ปรับขนาด Font ให้ใหญ่เท่ากันทั้ง Balance และ Equity/Profit 🔥
-                TEXT_SIZE = 20  # ขนาดใหญ่ชัดเจน
+                TEXT_SIZE = 20
 
                 fig = go.Figure()
                 if profit >= 0:
@@ -146,7 +145,7 @@ else:
                     barmode='stack', showlegend=False, 
                     xaxis=dict(visible=False, range=[0, max(balance, equity) * 1.15]), 
                     yaxis=dict(visible=False), 
-                    margin=dict(l=0, r=0, t=35, b=0), height=100, # เพิ่มความสูงนิดหน่อยรองรับ Font ใหญ่
+                    margin=dict(l=0, r=0, t=35, b=0), height=100,
                     paper_bgcolor='#0E1117', plot_bgcolor='#0E1117'
                 )
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
@@ -186,18 +185,18 @@ else:
                             fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MinPrice'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")), hoverinfo='skip'))
                             fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['AvgPrice'], mode='markers', marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), hoverinfo='skip'))
                             
-                            # E. CUSTOM LABELS (Lifted Up)
+                            # E. CUSTOM LABELS (Fixed Position)
                             label_texts = []
                             for m, t, c in zip(magic_stats['Magic'], magic_stats['OrderType'], magic_stats['OrderCount']):
                                 color_code = "#00C853" if t == "Buy" else "#D50000"
-                                # 🔥 เพิ่ม <br> ต่อท้าย 2 ครั้ง เพื่อดันข้อความให้ลอยสูงขึ้นไปอีก 🔥
-                                text_html = f"{m}<br><span style='color:{color_code}'>{t}</span> : {c}<br><br>"
+                                # 🔥 เอา <br> ท้ายสุดออก เพื่อไม่ให้สูงเกินไป 🔥
+                                text_html = f"{m}<br><span style='color:{color_code}'>{t}</span> : {c}"
                                 label_texts.append(text_html)
 
                             fig_p.add_trace(go.Scatter(
                                 x=magic_stats['Magic'].astype(str), y=magic_stats['MaxPrice'], mode='text',
                                 text=label_texts, 
-                                textposition="top center",
+                                textposition="top center", # ตำแหน่งธรรมชาติ อยู่เหนือจุดเล็กน้อย
                                 textfont=dict(color='#E0E0E0', size=11, family=common_font),
                                 hoverinfo='skip'
                             ))
@@ -205,8 +204,8 @@ else:
                             fig_p.update_layout(
                                 xaxis=dict(showticklabels=False, type='category', gridcolor='#333'),
                                 yaxis=dict(title="Price Level", gridcolor='#222', tickfont=dict(color='gray', size=10)),
-                                margin=dict(l=40, r=20, t=60, b=20), # เพิ่ม t (Top Margin) เพื่อให้มีที่ว่างสำหรับข้อความที่ลอยขึ้นไป
-                                height=420, showlegend=False,
+                                margin=dict(l=40, r=20, t=50, b=20), # ลด Top margin ลงให้พอดี
+                                height=400, showlegend=False,
                                 paper_bgcolor='#0E1117', plot_bgcolor='#0E1117'
                             )
                             st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
@@ -214,11 +213,14 @@ else:
                             # --- SECTION 5: MAGIC SUMMARY TABLE ---
                             st.markdown('<div class="section-header">Magic Summary</div>', unsafe_allow_html=True)
                             
-                            display_df = magic_stats[['Magic', 'OrderType', 'TotalVol', 'MinPrice', 'MaxPrice', 'AvgPrice']].copy()
+                            # 🔥 เพิ่ม OrderCount เข้าไปในตาราง 🔥
+                            display_df = magic_stats[['Magic', 'OrderType', 'OrderCount', 'TotalVol', 'MinPrice', 'MaxPrice', 'AvgPrice']].copy()
                             profit_df = orders_df.groupby('Magic')['Profit'].sum().reset_index()
                             display_df = display_df.merge(profit_df, on='Magic')
                             
-                            display_df.columns = ['MAGIC', 'TYPE', 'LOTS', 'MIN', 'MAX', 'AVG', 'PROFIT']
+                            # ตั้งชื่อคอลัมน์ใหม่ เพิ่ม ORDERS
+                            display_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'MIN', 'MAX', 'AVG', 'PROFIT']
+                            
                             for c in ['LOTS', 'MIN', 'MAX', 'AVG', 'PROFIT']: 
                                 display_df[c] = display_df[c].map('{:,.2f}'.format)
                             
