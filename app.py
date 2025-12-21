@@ -12,9 +12,9 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v15", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v16", page_icon="🛸", layout="wide")
 
-# --- 1. CSS STYLING (Sci-Fi HUD Theme - Refined) ---
+# --- 1. CSS STYLING (Sci-Fi HUD Theme - Refined Symmetry) ---
 st.markdown("""
 <style>
 .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
@@ -107,7 +107,7 @@ else:
             if not target_df.empty:
                 latest = target_df.iloc[-1]
                 
-                # Core Data
+                # Core Data with 2 Decimals
                 price = float(latest.get('CurrentPrice', 0.0))
                 bal, eq, prof = float(latest.get('Balance', 0.0)), float(latest.get('Equity', 0.0)), float(latest.get('TotalProfit', 0.0))
                 lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
@@ -124,7 +124,7 @@ else:
                 # P/L Color
                 prof_color = "#00e676" if prof >= 0 else "#FFD700"
 
-                # --- PART 1: HUD HEADER (Two-Row Refined Layout) ---
+                # --- PART 1: HUD HEADER (Symmetrical Layout) ---
                 h_html = f"""
 <div class="hud-box">
 <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
@@ -139,14 +139,14 @@ else:
 <div style="display:flex; justify-content:space-between; margin-top:10px;">
 <div style="text-align:left;">
 <div class="hud-label">EQUITY / P&L</div>
-<div style="display:flex; align-items:baseline; gap:10px; margin-top:2px;">
-<span class="hud-value-blue" style="font-size: 1.8rem;">{eq:,.2f}</span>
+<div style="display:flex; align-items:baseline; gap:8px; margin-top:2px;">
+<span style="color:#00e5ff; font-size: 1.2rem; font-weight: bold;">{eq:,.2f}</span>
 <span style="color:{prof_color}; font-size: 1.2rem; font-weight: bold;">({prof:+,.2f})</span>
 </div>
 </div>
 <div style="text-align:right;">
-<div class="hud-label">TOTAL</div>
-<div style="color:#fff; font-size: 1.6rem; font-weight: bold; margin-top:2px;">{lots:,.2f} <span style="font-size:0.8rem; color:#777;">LOTS</span></div>
+<div class="hud-label">TOTAL LOTS</div>
+<div style="color:#fff; font-size: 1.2rem; font-weight: bold; margin-top:2px;">{lots:,.2f}</div>
 </div>
 </div>
 </div>"""
