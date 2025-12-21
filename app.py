@@ -12,16 +12,17 @@ SHEET_URL = f"https://docs.google.com/spreadsheets/d/1BdkpzNz5lqECpnyc7PgC1BQMc5
 
 st.set_page_config(page_title="Tactical Monitor", page_icon="🛸", layout="wide")
 
-# --- 1. CSS STYLING (Sci-Fi HUD Theme) ---
-# แยก CSS ออกมาเป็น string ธรรมดา (ไม่ต้องใช้ f-string) เพื่อไม่ให้ error
-st.markdown("""
+# =========================================================
+# 1. CSS STYLING (แยกออกมาเป็น String ธรรมดา เพื่อไม่ให้ Error)
+# =========================================================
+css_styles = """
 <style>
     /* Main Layout */
     .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
     header, footer { visibility: hidden; }
     .stApp { background-color: #050505; color: #e0f7fa; font-family: 'Courier New', Courier, monospace; }
 
-    /* HUD Box */
+    /* HUD Box Container */
     .hud-box {
         background: #0a0f14;
         border: 1px solid #333;
@@ -36,8 +37,7 @@ st.markdown("""
     /* Typography */
     .hud-label { font-size: 0.8rem; color: #546e7a; letter-spacing: 2px; font-weight: bold; margin-bottom: 2px; }
     .hud-value { font-size: 2.2rem; color: #00e5ff; font-weight: bold; text-shadow: 0 0 10px rgba(0, 229, 255, 0.6); line-height: 1; }
-    .hud-sub { font-size: 0.75rem; color: #888; margin-top: 5px; }
-
+    
     /* Health Bar */
     .bar-container { width: 100%; height: 10px; background: #1c2530; margin: 10px 0; position: relative; border-radius: 2px; }
     .bar-fill { height: 100%; transition: width 0.5s; }
@@ -59,7 +59,9 @@ st.markdown("""
     .div-bar-center { position: absolute; left: 50%; width: 1px; height: 10px; background: #666; }
     .div-bar-fill { height: 100%; position: absolute; opacity: 0.9; }
 </style>
-""", unsafe_allow_html=True)
+"""
+# Render CSS ทันที
+st.markdown(css_styles, unsafe_allow_html=True)
 
 # --- 2. HELPER FUNCTIONS ---
 def load_data():
@@ -98,7 +100,7 @@ else:
             if not target_df.empty:
                 latest = target_df.iloc[-1]
                 
-                # Extract Data variables
+                # Extract Data
                 current_price = float(latest.get('CurrentPrice', 0.0))
                 balance = float(latest.get('Balance', 0.0))
                 equity = float(latest.get('Equity', 0.0))
@@ -108,7 +110,7 @@ else:
                 # Logic for Visuals
                 status_color = "#00e676" if profit >= 0 else "#ff1744" # Green or Red
                 
-                # Calcluate Health Bar
+                # Health Bar Calculation
                 max_scale = max(balance, equity) * 1.2
                 if max_scale == 0: max_scale = 1
                 eq_pct = (equity / max_scale) * 100
@@ -118,7 +120,8 @@ else:
                 # 3. RENDER HUD HEADER (Overview)
                 # ==========================================
                 
-                # สร้าง HTML ด้วย f-string แบบระวังเรื่องวงเล็บ
+                # ส่วนนี้ใช้ f-string ได้ เพราะเราใส่ค่าตัวแปรลงไป
+                # และไม่มี CSS {} มาปน
                 header_html = f"""
                 <div class="hud-box">
                     <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
@@ -179,7 +182,6 @@ else:
                             rows_html = ""
                             
                             for index, row in magic_stats.iterrows():
-                                # ดึงค่าตัวแปรออกมา
                                 m_id = row['Magic']
                                 m_type = row['OrderType']
                                 m_count = row['OrderCount']
@@ -198,14 +200,16 @@ else:
                                 pct_len = (abs(m_profit) / max_abs_profit) * 50
                                 bar_col = "#00e676" if m_profit >= 0 else "#ff1744"
                                 
+                                # สร้าง HTML Bar
                                 if m_profit >= 0:
-                                    # กำไร (ขวา)
-                                    bar_style = f"left: 50%; width: {pct_len}%; background: {bar_col};"
+                                    # กำไร (ไปทางขวา)
+                                    # ใช้ f-string ได้เพราะเป็น string ย่อยๆ ไม่มี CSS block
+                                    bar_div = f'<div class="div-bar-fill" style="left: 50%; width: {pct_len}%; background: {bar_col};"></div>'
                                 else:
-                                    # ขาดทุน (ซ้าย)
-                                    bar_style = f"right: 50%; width: {pct_len}%; background: {bar_col};"
+                                    # ขาดทุน (ไปทางซ้าย)
+                                    bar_div = f'<div class="div-bar-fill" style="right: 50%; width: {pct_len}%; background: {bar_col};"></div>'
 
-                                # สร้าง HTML ของการ์ดแต่ละใบ
+                                # สร้าง HTML Card
                                 rows_html += f"""
                                 <div class="magic-row" style="border-left: 3px solid {border_col};">
                                     <div style="text-align:center; min-width:60px;">
@@ -215,7 +219,7 @@ else:
                                     
                                     <div class="div-bar-track">
                                         <div class="div-bar-center"></div>
-                                        <div class="div-bar-fill" style="{bar_style}"></div>
+                                        {bar_div}
                                     </div>
                                     
                                     <div style="text-align:right; min-width:80px;">
