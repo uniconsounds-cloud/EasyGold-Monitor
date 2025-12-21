@@ -11,44 +11,98 @@ SHEET_ID = "ใส่_SHEET_ID_ของคุณตรงนี้"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ/export?format=csv"
 
-st.set_page_config(page_title="Mobile Monitor", page_icon="📱", layout="wide")
+st.set_page_config(page_title="Tactical Monitor", page_icon="🛸", layout="wide")
 
-# --- GLOBAL CSS STYLING ---
+# --- HUD CSS STYLING (The Sci-Fi Look) ---
 st.markdown("""
 <style>
-    .block-container {
-        padding-top: 1rem;
-        padding-bottom: 3rem;
-        padding-left: 0.8rem;
-        padding-right: 0.8rem;
-    }
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stApp { background-color: #0E1117; color: #FAFAFA; font-family: 'Roboto', sans-serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@500;700&display=swap');
+
+    /* 1. Reset & Main Theme */
+    .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
+    header, footer { visibility: hidden; }
+    .stApp { background-color: #050505; }
     
-    .section-header {
-        font-size: 1rem;
-        font-weight: 700;
-        color: #E0E0E0;
-        border-left: 4px solid #29B6F6;
-        padding-left: 10px;
-        margin-top: 25px;
+    /* 2. HUD Container */
+    .hud-container {
+        font-family: 'Rajdhani', sans-serif;
+        color: #e0f7fa;
+        background: #0a0f14;
+        border: 1px solid #1c2530;
+        border-radius: 4px;
+        padding: 10px;
         margin-bottom: 15px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.05);
+        position: relative;
     }
     
-    div[data-baseweb="select"] > div {
-        background-color: #1E222D; color: white; border-color: #444;
+    /* Corner Accents (ขีดมุมฉากแบบในหนัง) */
+    .hud-container::before {
+        content: ""; position: absolute; top: -1px; left: -1px; width: 20px; height: 20px;
+        border-top: 2px solid #00e5ff; border-left: 2px solid #00e5ff;
+    }
+    .hud-container::after {
+        content: ""; position: absolute; bottom: -1px; right: -1px; width: 20px; height: 20px;
+        border-bottom: 2px solid #00e5ff; border-right: 2px solid #00e5ff;
+    }
+
+    /* 3. Header Section (Price & Balance) */
+    .hud-header {
+        display: flex; justify-content: space-between; align-items: flex-end;
+        border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px;
+    }
+    .hud-price-box { text-align: left; }
+    .hud-label { font-size: 0.8rem; color: #546e7a; text-transform: uppercase; letter-spacing: 2px; }
+    .hud-value-big { 
+        font-family: 'Share Tech Mono', monospace; 
+        font-size: 2.2rem; color: #00e5ff; 
+        text-shadow: 0 0 10px rgba(0, 229, 255, 0.6);
     }
     
-    .metric-card {
-        background-color: #1E222D;
-        padding: 15px;
-        border-radius: 8px;
-        border: 1px solid #333;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    /* 4. Health Bar (หลอดพลังงาน) */
+    .health-bar-container {
+        width: 100%; height: 8px; background: #1c2530; margin: 5px 0 15px 0; position: relative;
     }
+    .health-fill { height: 100%; transition: width 0.5s; box-shadow: 0 0 8px currentColor; }
+    .health-marker { 
+        position: absolute; top: -4px; width: 2px; height: 16px; background: #fff; z-index: 10;
+        box-shadow: 0 0 5px white;
+    }
+
+    /* 5. Magic Module Grid */
+    .magic-grid { display: grid; gap: 8px; }
+    
+    /* 6. Magic Card (แต่ละแถว) */
+    .magic-card {
+        background: rgba(255, 255, 255, 0.02);
+        border-left: 3px solid #333;
+        padding: 8px 10px;
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    .magic-id { font-family: 'Share Tech Mono', monospace; font-size: 1.1rem; color: #b0bec5; width: 60px; }
+    
+    /* Badge (Buy/Sell) */
+    .badge { 
+        padding: 2px 6px; font-size: 0.7rem; font-weight: bold; border-radius: 2px; 
+        text-transform: uppercase; width: 40px; text-align: center; display: inline-block;
+    }
+    .badge-buy { background: rgba(0, 200, 83, 0.2); color: #00e676; border: 1px solid #00e676; }
+    .badge-sell { background: rgba(213, 0, 0, 0.2); color: #ff1744; border: 1px solid #ff1744; }
+
+    /* Bar Chart in Card (Diverging Bar) */
+    .bar-wrapper { flex-grow: 1; margin: 0 15px; height: 6px; background: #1c2530; position: relative; display: flex; align-items: center; }
+    .bar-center-line { position: absolute; left: 50%; width: 1px; height: 100%; background: #555; z-index: 1; }
+    .bar-fill { height: 100%; opacity: 0.8; }
+    
+    .stats-group { text-align: right; min-width: 80px; }
+    .stat-lot { font-size: 0.9rem; font-weight: bold; color: #fff; }
+    .stat-profit { font-size: 0.8rem; font-family: 'Share Tech Mono'; }
+    
+    /* Utility Colors */
+    .c-green { color: #00e676; }
+    .c-red { color: #ff1744; }
+    .c-blue { color: #00e5ff; }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -62,10 +116,6 @@ def load_data():
     except:
         return None
 
-def highlight_type(val):
-    color = '#00C853' if val == 'Buy' else '#D50000'
-    return f'color: {color}; font-weight: bold'
-
 # =========================================================
 # Main Loop
 # =========================================================
@@ -73,7 +123,7 @@ def highlight_type(val):
 df = load_data()
 
 if df is None:
-    st.warning("Connecting...")
+    st.warning("Establishing Link...")
     time.sleep(2)
     st.rerun()
 else:
@@ -81,9 +131,9 @@ else:
         df['AccountID'] = df['AccountID'].astype(str)
         all_accounts = df['AccountID'].unique().tolist()
         
-        # --- SECTION 1: ACCOUNT SELECTOR ---
+        # --- SELECTOR (Hidden in plain sight style) ---
         if len(all_accounts) > 0:
-            selected_account = st.selectbox("SELECT ACCOUNT", all_accounts, index=0)
+            selected_account = st.selectbox("MISSION TARGET", all_accounts, index=0)
         else:
             selected_account = None
         
@@ -93,163 +143,136 @@ else:
             if not target_df.empty:
                 latest = target_df.iloc[-1]
                 
+                # --- DATA EXTRACTION ---
                 current_price = float(latest.get('CurrentPrice', 0.0))
                 balance = float(latest.get('Balance', 0.0))
                 equity = float(latest.get('Equity', 0.0))
                 profit = float(latest.get('TotalProfit', 0.0))
                 total_lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
-                common_font = "Arial, sans-serif"
-
-                # --- SECTION 2: MARKET OVERVIEW ---
-                st.markdown('<div class="section-header">Market Overview</div>', unsafe_allow_html=True)
                 
-                st.markdown(f"""
-                <div class="metric-card" style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style='text-align: left;'>
-                        <div style='color: #9E9E9E; font-size: 0.75rem; font-weight: 600;'>GOLD PRICE (BID)</div>
-                        <div style='color: #29B6F6; font-size: 1.6rem; font-weight: 800; margin-top: 2px;'>{current_price:,.2f}</div>
+                # Health Bar Logic
+                health_color = "#00e676" if profit >= 0 else "#ff1744"
+                max_val = max(balance, equity) * 1.2
+                eq_percent = (equity / max_val) * 100 if max_val > 0 else 0
+                bal_percent = (balance / max_val) * 100 if max_val > 0 else 0
+
+                # --- 1. HUD HEADER SECTION ---
+                html_header = f"""
+                <div class="hud-container">
+                    <div class="hud-header">
+                        <div class="hud-price-box">
+                            <div class="hud-label">MARKET PRICE</div>
+                            <div class="hud-value-big">{current_price:,.2f}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div class="hud-label">NET EQUITY</div>
+                            <div class="hud-value-big" style="color: {health_color}; font-size: 1.8rem;">{equity:,.0f}</div>
+                        </div>
                     </div>
-                    <div style='width: 1px; height: 40px; background-color: #333;'></div>
-                    <div style='text-align: right;'>
-                        <div style='color: #9E9E9E; font-size: 0.75rem; font-weight: 600;'>TOTAL EXPOSURE</div>
-                        <div style='color: #FFA726; font-size: 1.6rem; font-weight: 800; margin-top: 2px;'>{total_lots:.2f}<span style='font-size: 0.8rem; color: #777; font-weight: 400;'> Lots</span></div>
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#777; margin-bottom:2px;">
+                        <span>0</span>
+                        <span>BALANCE: {balance:,.0f}</span>
+                    </div>
+                    <div class="health-bar-container">
+                        <div class="health-marker" style="left: {bal_percent}%;"></div>
+                        <div class="health-fill" style="width: {eq_percent}%; background-color: {health_color};"></div>
+                    </div>
+                    
+                    <div style="display:flex; justify-content:space-between; margin-top:5px;">
+                         <div><span class="hud-label">TOTAL LOTS:</span> <span style="color:#fff; font-weight:bold;">{total_lots:.2f}</span></div>
+                         <div><span class="hud-label">P/L:</span> <span style="color:{health_color}; font-weight:bold;">{profit:+,.2f}</span></div>
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
+                """
+                st.markdown(html_header, unsafe_allow_html=True)
 
-                # --- SECTION 3: ACCOUNT HEALTH ---
-                st.markdown('<div class="section-header">Account Health</div>', unsafe_allow_html=True)
-                
-                TEXT_SIZE = 20
-
-                fig = go.Figure()
-                if profit >= 0:
-                    fig.add_trace(go.Bar(x=[balance], y=[""], orientation='h', marker_color='#0288D1', hoverinfo='none'))
-                    fig.add_trace(go.Bar(x=[profit], y=[""], orientation='h', marker_color='#00C853', hoverinfo='none', 
-                                         text=f"Profit<br>{profit:,.0f}", textposition='inside', 
-                                         textfont=dict(color='white', size=TEXT_SIZE, family=common_font, weight='bold')))
-                else:
-                    fig.add_trace(go.Bar(x=[equity], y=[""], orientation='h', marker_color='#0288D1', hoverinfo='none', 
-                                         text=f"Equity<br>{equity:,.0f}", textposition='inside', 
-                                         textfont=dict(color='white', size=TEXT_SIZE, family=common_font, weight='bold')))
-                    fig.add_trace(go.Bar(x=[abs(profit)], y=[""], orientation='h', marker_color='#D50000', hoverinfo='none', 
-                                         text=f"Loss<br>{abs(profit):,.0f}", textposition='inside', 
-                                         textfont=dict(color='white', size=TEXT_SIZE, family=common_font, weight='bold')))
-                
-                fig.add_vline(x=balance, line_width=2, line_color="white", opacity=0.8)
-                
-                fig.add_annotation(x=balance, y=0, yshift=28, text=f"Balance : {balance:,.0f}", xanchor='right', xshift=-5, showarrow=False, 
-                                   font=dict(size=TEXT_SIZE, color="white", family=common_font, weight="bold"))
-                
-                fig.update_layout(
-                    barmode='stack', showlegend=False, 
-                    xaxis=dict(visible=False, range=[0, max(balance, equity) * 1.15]), 
-                    yaxis=dict(visible=False), 
-                    margin=dict(l=0, r=0, t=35, b=0), height=100,
-                    paper_bgcolor='#0E1117', plot_bgcolor='#0E1117'
-                )
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
-
-                # --- SECTION 4: PORTFOLIO STRUCTURE ---
-                st.markdown('<div class="section-header">Portfolio Structure</div>', unsafe_allow_html=True)
+                # --- 2. MAGIC MODULES (INFOGRAPHIC LIST) ---
                 
                 orders_str = latest.get('JSON_Data', '[]')
                 if pd.isna(orders_str) or orders_str == "": orders_str = '[]'
                 
                 try:
                     orders = json.loads(orders_str)
-                    if len(orders) > 0 and current_price > 0:
+                    if len(orders) > 0:
                         orders_df = pd.DataFrame(orders)
                         orders_df.rename(columns={'s': 'Symbol', 't': 'Type', 'v': 'Volume', 'p': 'Open Price', 'pl': 'Profit', 'm': 'Magic'}, inplace=True)
                         
                         if 'Magic' in orders_df.columns:
-                            orders_df['WeightedVal'] = orders_df['Volume'] * orders_df['Open Price']
+                            # Group Data
                             magic_stats = orders_df.groupby('Magic').agg(
-                                AvgPrice=('WeightedVal', 'sum'), TotalVol=('Volume', 'sum'),
-                                MinPrice=('Open Price', 'min'), MaxPrice=('Open Price', 'max'),
-                                OrderCount=('Magic', 'count'), OrderType=('Type', 'first')
+                                OrderType=('Type', 'first'),
+                                OrderCount=('Magic', 'count'),
+                                TotalLots=('Volume', 'sum'),
+                                TotalProfit=('Profit', 'sum')
                             ).reset_index()
                             
-                            # คำนวณ Avg Price (BE Price)
-                            magic_stats['AvgPrice'] = magic_stats['AvgPrice'] / magic_stats['TotalVol']
+                            # Find Max Abs Profit for Scaling Bars
+                            max_abs_profit = magic_stats['TotalProfit'].abs().max()
+                            if max_abs_profit == 0: max_abs_profit = 1
+
+                            st.markdown('<div class="hud-label" style="margin-bottom:8px;">ACTIVE MODULES</div>', unsafe_allow_html=True)
                             
-                            # คำนวณ Distance (ระยะห่างจากราคาปัจจุบัน)
-                            def calc_dist(row):
-                                if row['OrderType'] == 'Buy':
-                                    return row['AvgPrice'] - current_price # ถ้า Buy: ราคาเป้า - ราคาปัจจุบัน
+                            html_magic_rows = '<div class="magic-grid">'
+                            
+                            for index, row in magic_stats.iterrows():
+                                m_id = row['Magic']
+                                m_type = row['OrderType']
+                                m_count = row['OrderCount']
+                                m_lots = row['TotalLots']
+                                m_profit = row['TotalProfit']
+                                
+                                # Badge Style
+                                badge_class = "badge-buy" if m_type == "Buy" else "badge-sell"
+                                border_color = "#00e676" if m_type == "Buy" else "#ff1744"
+                                
+                                # Bar Logic (Diverging Bar)
+                                # 50% is center. 
+                                # Profit moves right (50% -> 100%), Loss moves left (50% -> 0%)
+                                bar_percent = (abs(m_profit) / max_abs_profit) * 50
+                                bar_color = "#00e676" if m_profit >= 0 else "#ff1744"
+                                
+                                bar_html = ""
+                                if m_profit >= 0:
+                                    # Profit: Start at 50%, width goes right
+                                    bar_html = f'<div class="bar-fill" style="position:absolute; left:50%; width:{bar_percent}%; background:{bar_color}; box-shadow: 0 0 5px {bar_color};"></div>'
                                 else:
-                                    return current_price - row['AvgPrice'] # ถ้า Sell: ราคาปัจจุบัน - ราคาเป้า
+                                    # Loss: End at 50%, width goes left
+                                    bar_html = f'<div class="bar-fill" style="position:absolute; right:50%; width:{bar_percent}%; background:{bar_color}; box-shadow: 0 0 5px {bar_color};"></div>'
+
+                                row_html = f"""
+                                <div class="magic-card" style="border-left-color: {border_color};">
+                                    <div style="display:flex; flex-direction:column; align-items:center; margin-right:10px;">
+                                        <div class="magic-id">{m_id}</div>
+                                        <div class="badge {badge_class}">{m_type}</div>
+                                    </div>
                                     
-                            magic_stats['Dist'] = magic_stats.apply(calc_dist, axis=1)
+                                    <div class="bar-wrapper">
+                                        <div class="bar-center-line"></div>
+                                        {bar_html}
+                                    </div>
+                                    
+                                    <div class="stats-group">
+                                        <div class="stat-lot">{m_lots:,.2f} <span style="font-size:0.7rem; color:#777;">LOT</span></div>
+                                        <div class="stat-profit" style="color: {bar_color};">{m_profit:+,.0f} <span style="font-size:0.7rem; color:#777;">$</span></div>
+                                        <div style="font-size:0.7rem; color:#555;">CNT: {m_count}</div>
+                                    </div>
+                                </div>
+                                """
+                                html_magic_rows += row_html
                             
-                            fig_p = go.Figure()
-
-                            # 1. Market Price
-                            fig_p.add_hline(
-                                y=current_price, line_dash="dash", line_color="#29B6F6", line_width=1,
-                                annotation_text=f"Market: {current_price:,.2f}", annotation_position="top right", annotation_font=dict(color="#29B6F6", size=10)
-                            )
-
-                            # 2. Draw Elements
-                            fig_p.add_trace(go.Scatter(x=orders_df['Magic'].astype(str), y=orders_df['Open Price'], mode='markers', marker=dict(symbol='line-ew', size=25, line=dict(width=1, color="rgba(255, 255, 255, 0.25)")), hoverinfo='skip'))
-                            fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxPrice'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#D50000")), hoverinfo='skip'))
-                            fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MinPrice'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")), hoverinfo='skip'))
-                            fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['AvgPrice'], mode='markers', marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), hoverinfo='skip'))
+                            html_magic_rows += "</div>"
+                            st.markdown(html_magic_rows, unsafe_allow_html=True)
                             
-                            # E. CUSTOM LABELS
-                            label_texts = []
-                            for m, t, c in zip(magic_stats['Magic'], magic_stats['OrderType'], magic_stats['OrderCount']):
-                                color_code = "#00C853" if t == "Buy" else "#D50000"
-                                text_html = f"{m}<br><span style='color:{color_code}'>{t}</span> : {c}"
-                                label_texts.append(text_html)
-
-                            fig_p.add_trace(go.Scatter(
-                                x=magic_stats['Magic'].astype(str), y=magic_stats['MaxPrice'], mode='text',
-                                text=label_texts, 
-                                textposition="top center",
-                                textfont=dict(color='#E0E0E0', size=11, family=common_font),
-                                hoverinfo='skip'
-                            ))
-
-                            fig_p.update_layout(
-                                xaxis=dict(showticklabels=False, type='category', gridcolor='#333'),
-                                yaxis=dict(title="Price Level", gridcolor='#222', tickfont=dict(color='gray', size=10)),
-                                margin=dict(l=40, r=20, t=50, b=20), height=400, showlegend=False,
-                                paper_bgcolor='#0E1117', plot_bgcolor='#0E1117'
-                            )
-                            st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
-
-                            # --- SECTION 5: MAGIC SUMMARY TABLE ---
-                            st.markdown('<div class="section-header">Magic Summary</div>', unsafe_allow_html=True)
-                            
-                            display_df = magic_stats[['Magic', 'OrderType', 'OrderCount', 'TotalVol', 'AvgPrice', 'Dist']].copy()
-                            profit_df = orders_df.groupby('Magic')['Profit'].sum().reset_index()
-                            display_df = display_df.merge(profit_df, on='Magic')
-                            
-                            # ตั้งชื่อคอลัมน์ใหม่ (AVG -> BE PRICE, เพิ่ม DIST)
-                            display_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'BE PRICE', 'DIST', 'PROFIT']
-                            
-                            # Format ตัวเลข
-                            for c in ['LOTS', 'BE PRICE', 'DIST', 'PROFIT']: 
-                                display_df[c] = display_df[c].map('{:,.2f}'.format)
-                            
-                            st.dataframe(
-                                display_df.style.map(highlight_type, subset=['TYPE']), 
-                                use_container_width=True, 
-                                height=len(display_df) * 35 + 38,
-                                hide_index=True
-                            )
-
                         else:
-                            st.info("No Magic Number Data")
-                    else:
-                        st.info("No Active Orders")
+                            st.info("NO DATA STREAM")
                 except Exception as e:
-                     st.error(f"Data Error: {e}")
+                    st.error(f"PARSING ERROR: {e}")
+
             else:
-                st.warning("Account not found.")
+                st.warning("WAITING FOR SIGNAL...")
     except Exception as main_e:
-        st.error(f"System Error: {main_e}")
+        st.error(f"SYSTEM FAILURE: {main_e}")
 
 time.sleep(5)
 st.rerun()
