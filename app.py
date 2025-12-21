@@ -12,9 +12,9 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v13", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v14", page_icon="🛸", layout="wide")
 
-# --- 1. CSS STYLING (Sci-Fi HUD Theme - Green & Gold) ---
+# --- 1. CSS STYLING (Sci-Fi HUD Theme - Refined Layout) ---
 st.markdown("""
 <style>
 .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
@@ -29,13 +29,22 @@ header, footer { visibility: hidden; }
 .hud-label { font-size: 0.75rem; color: #546e7a; letter-spacing: 2px; font-weight: bold; text-transform: uppercase; }
 .hud-value-blue { font-size: 2.2rem; color: #00e5ff; font-weight: bold; text-shadow: 0 0 10px rgba(0, 229, 255, 0.6); line-height: 1; }
 .hud-value-sub { font-size: 1.2rem; color: #aaa; font-weight: bold; }
-.hud-value-big { font-size: 1.8rem; font-weight: bold; }
 
 /* Energy Bar (18px) */
 .main-bar-container { width: 100%; height: 18px; background: #1c2530; margin: 10px 0; position: relative; border-radius: 2px; overflow: hidden; }
 .main-bar-fill-blue { height: 100%; background: #00e5ff; box-shadow: 0 0 10px #00e5ff; position: absolute; z-index: 3; transition: width 0.5s; }
 .main-bar-fill-gold { height: 100%; background: #FFD600; box-shadow: 0 0 8px #FFD600; position: absolute; z-index: 2; transition: width 0.5s; }
-.main-bar-marker { position: absolute; top: -3px; width: 2px; height: 24px; background: white; z-index: 5; box-shadow: 0 0 5px white; }
+
+/* ปรับ Marker Balance ให้เป็นเส้นขาวเรืองแสง 2px */
+.main-bar-marker { 
+    position: absolute; 
+    width: 2px; 
+    height: 24px; 
+    top: -3px; 
+    background: #fff; 
+    z-index: 5; 
+    box-shadow: 0 0 8px #fff; 
+}
 
 /* Module Cards */
 .module-card {
@@ -122,10 +131,10 @@ else:
                     gold_width = bal_pct - eq_pct
                     gold_bar_html = f'<div class="main-bar-fill-gold" style="left: {eq_pct}%; width: {gold_width}%;"></div>'
 
-                # P/L Color for Bottom Left
+                # P/L Color
                 prof_color = "#00e676" if prof >= 0 else "#FFD700"
 
-                # --- PART 1: HUD HEADER (New Layout) ---
+                # --- PART 1: HUD HEADER (Two-Row Bottom Info) ---
                 h_html = f"""
 <div class="hud-box">
 <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
@@ -137,14 +146,17 @@ else:
 <div class="main-bar-fill-blue" style="width: {eq_pct}%;"></div>
 {gold_bar_html}
 </div>
-<div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
-<div style="display:flex; align-items:baseline; gap:12px;">
-<span class="hud-label">EQUITY / P&L</span>
+<div style="display:flex; justify-content:space-between; margin-top:10px;">
+<div style="text-align:left;">
+<div class="hud-label">EQUITY / P&L</div>
+<div style="display:flex; align-items:baseline; gap:10px; margin-top:2px;">
 <span class="hud-value-blue" style="font-size: 1.8rem;">{eq:,.0f}</span>
 <span style="color:{prof_color}; font-size: 1.5rem; font-weight: bold;">({prof:+,.2f})</span>
 </div>
+</div>
 <div style="text-align:right;">
-<span class="hud-label">EXPOSURE:</span> <b style="color:#fff; font-size: 1.1rem;">{lots:.2f} LOTS</b>
+<div class="hud-label">TOTAL EXPOSURE</div>
+<div style="color:#fff; font-size: 1.6rem; font-weight: bold; margin-top:2px;">{lots:.2f} <span style="font-size:0.8rem; color:#777;">LOTS</span></div>
 </div>
 </div>
 </div>"""
@@ -223,7 +235,7 @@ else:
 </div>"""
                         st.markdown(m_html, unsafe_allow_html=True)
 
-                    # --- PART 3: STRUCTURE GRAPH ---
+                    # --- PART 3: STRUCTURE GRAPH (Protected) ---
                     st.markdown('<div class="section-title">PORTFOLIO STRUCTURE MAP</div>', unsafe_allow_html=True)
                     
                     fig_p = go.Figure()
