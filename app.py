@@ -12,15 +12,16 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v22", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v23", page_icon="🛸", layout="wide")
 
-# --- 1. CSS STYLING (Sci-Fi HUD Theme - Green & Gold) ---
+# --- 1. CSS STYLING (Sci-Fi HUD Theme + Enhanced Tooltips) ---
 st.markdown("""
 <style>
 .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
 header, footer { visibility: hidden; }
 .stApp { background-color: #050505; color: #e0f7fa; font-family: 'Courier New', Courier, monospace; }
 
+/* HUD Overview */
 .hud-box {
     background: #0a0f14; border: 1px solid #333; border-radius: 4px;
     padding: 15px; margin-bottom: 15px; border-left: 4px solid #00e5ff;
@@ -29,11 +30,13 @@ header, footer { visibility: hidden; }
 .hud-value-blue { font-size: 2.2rem; color: #00e5ff; font-weight: bold; text-shadow: 0 0 10px rgba(0, 229, 255, 0.6); line-height: 1; }
 .hud-value-sub { font-size: 1.2rem; color: #aaa; font-weight: bold; }
 
-.main-bar-container { width: 100%; height: 18px; background: #1c2530; margin: 10px 0; position: relative; border-radius: 2px; overflow: hidden; }
+/* Energy Bar (18px) */
+.main-bar-container { width: 100%; height: 18px; background: #1c2530; margin: 10px 0; position: relative; border-radius: 2px; overflow: visible; }
 .main-bar-fill-blue { height: 100%; background: #00e5ff; box-shadow: 0 0 10px #00e5ff; position: absolute; z-index: 3; transition: width 0.5s; }
 .main-bar-fill-gold { height: 100%; background: #FFD600; box-shadow: 0 0 8px #FFD600; position: absolute; z-index: 2; transition: width 0.5s; }
-.main-bar-marker { position: absolute; width: 2px; height: 24px; top: -3px; background: #fff; z-index: 5; box-shadow: 0 0 8px #fff; }
+.main-bar-marker { position: absolute; width: 2px; height: 24px; top: -3px; background: #fff; z-index: 5; box-shadow: 0 0 8px #fff; cursor: pointer; }
 
+/* Module Cards */
 .module-card {
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid #222; border-radius: 4px;
@@ -63,12 +66,49 @@ header, footer { visibility: hidden; }
 .vu-tick.active-gold { background: #FFD700; box-shadow: 0 0 5px #FFD700; }
 .vu-overflow { color: #FFD700; font-size: 1.1rem; margin-left: 5px; font-weight: bold; }
 
+/* Price Scale & Interactive Ticks */
 .scale-row { display: flex; align-items: center; justify-content: space-between; }
-.price-scale { flex-grow: 1; height: 18px; background: rgba(255,255,255,0.03); margin-right: 15px; position: relative; border-bottom: 1px solid #333; cursor: crosshair; }
-.tick-order { position: absolute; width: 1px; height: 12px; background: #555; bottom: 0; }
-.tick-main { width: 2px; height: 18px; background: #fff; box-shadow: 0 0 5px #fff; z-index: 3; bottom: 0; }
-.tick-be { width: 3px; height: 22px; background: #FFD600; box-shadow: 0 0 8px #FFD600; z-index: 5; bottom: -2px; }
-.tick-current { position: absolute; width: 1px; height: 28px; border-left: 1px dashed #00e5ff; top: -5px; z-index: 6; }
+.price-scale { flex-grow: 1; height: 18px; background: rgba(255,255,255,0.03); margin-right: 15px; position: relative; border-bottom: 1px solid #333; overflow: visible; }
+
+.tick-order, .tick-main, .tick-be, .tick-current { 
+    position: absolute; 
+    cursor: pointer;
+    z-index: 10;
+}
+
+/* สร้าง Hit Box ล่องหนเพื่อขยายพื้นที่สัมผัส */
+.tick-order::after, .tick-main::after, .tick-be::after, .tick-current::after {
+    content: "";
+    position: absolute;
+    top: -5px; bottom: -5px;
+    left: -10px; right: -10px;
+    background: transparent;
+}
+
+.tick-order { width: 1px; height: 12px; background: #555; bottom: 0; }
+.tick-main { width: 2px; height: 18px; background: #fff; box-shadow: 0 0 5px #fff; bottom: 0; }
+.tick-be { width: 3px; height: 22px; background: #FFD600; box-shadow: 0 0 8px #FFD600; bottom: -2px; z-index: 12; }
+.tick-current { width: 1px; height: 28px; border-left: 1px dashed #00e5ff; top: -5px; z-index: 13; }
+
+/* --- CSS Tooltip Logic --- */
+[data-tooltip] { position: relative; }
+[data-tooltip]:active::before, [data-tooltip]:hover::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #000;
+    color: #00e5ff;
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    border-radius: 3px;
+    border: 1px solid #00e5ff;
+    white-space: nowrap;
+    z-index: 100;
+    pointer-events: none;
+    box-shadow: 0 0 10px rgba(0,229,255,0.5);
+}
 
 .data-text { font-size: 0.9rem; font-weight: bold; white-space: nowrap; font-family: monospace; line-height: 18px; }
 .section-title { font-size: 0.9rem; font-weight: 700; color: #E0E0E0; border-left: 4px solid #29B6F6; padding-left: 10px; margin-top: 25px; margin-bottom: 15px; text-transform: uppercase; }
@@ -110,7 +150,7 @@ else:
                 bal, eq, prof = float(latest.get('Balance', 0.0)), float(latest.get('Equity', 0.0)), float(latest.get('TotalProfit', 0.0))
                 lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
                 
-                # PRICE DIRECTION TRACKER
+                # Price Direction
                 if 'prev_price' not in st.session_state: st.session_state.prev_price = price
                 prev_p = st.session_state.prev_price
                 if price > prev_p:
@@ -132,8 +172,8 @@ else:
 <div style="text-align:right;"><div class="hud-label">BALANCE</div><div class="hud-value-sub">{bal:,.2f}</div></div>
 </div>
 <div class="main-bar-container">
-<div class="main-bar-marker" style="left: {bal_pct}%" title="BALANCE: {bal:,.2f}"></div>
-<div class="main-bar-fill-blue" style="width: {eq_pct}%;" title="EQUITY: {eq:,.2f}"></div>
+<div class="main-bar-marker" style="left: {bal_pct}%" data-tooltip="BAL: {bal:,.2f}"></div>
+<div class="main-bar-fill-blue" style="width: {eq_pct}%;" data-tooltip="EQ: {eq:,.2f}"></div>
 {gold_bar_html}
 </div>
 <div style="display:flex; justify-content:space-between; margin-top:10px;">
@@ -200,12 +240,11 @@ else:
                         s_range = (s_max - s_min) or 1
                         def get_pct(v): return ((v - s_min) / s_range) * 100
                         
-                        # สร้าง Ticks สำหรับออเดอร์พร้อมฟีเจอร์แสดงราคาเมื่อแตะ
                         order_ticks = ""
                         for op in m_orders['Open Price']:
                             is_main = "tick-main" if op in [m["MinP"], m["MaxP"]] else ""
-                            label = "Max Price" if op == m["MaxP"] else ("Min Price" if op == m["MinP"] else "Order Price")
-                            order_ticks += f'<div class="tick-order {is_main}" style="left:{get_pct(op)}%" title="{label}: {op:,.2f}"></div>'
+                            l_tag = "MAX" if op == m["MaxP"] else ("MIN" if op == m["MinP"] else "PRC")
+                            order_ticks += f'<div class="tick-order {is_main}" style="left:{get_pct(op)}%" data-tooltip="{l_tag}: {op:,.2f}"></div>'
                         
                         raw_dist = m['BEP'] - price if m['Type'] == 'Buy' else price - m['BEP']
                         dist_str = f"✅ {abs(raw_dist):,.2f}" if raw_dist <= 0 else f"⚠️ {abs(raw_dist):,.2f}"
@@ -229,8 +268,8 @@ else:
 <div class="scale-row">
 <div class="price-scale">
 {order_ticks}
-<div class="tick-order tick-be" style="left:{get_pct(m['BEP'])}%" title="BE Price: {m['BEP']:,.2f}"></div>
-<div class="tick-current" style="left:{get_pct(price)}%" title="Market Price: {price:,.2f}"></div>
+<div class="tick-be" style="left:{get_pct(m['BEP'])}%" data-tooltip="BE: {m['BEP']:,.2f}"></div>
+<div class="tick-current" style="left:{get_pct(price)}%" data-tooltip="MKT: {price:,.2f}"></div>
 </div>
 <div class="data-text" style="color:{d_icon_col}"><span style="font-size:1.1rem; vertical-align:middle;">{d_icon}</span> <span style="color:{'#00e676' if raw_dist <= 0 else '#FFD700'}">{dist_str}</span></div>
 </div>
