@@ -12,16 +12,15 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v18", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v19", page_icon="🛸", layout="wide")
 
-# --- 1. CSS STYLING (Sci-Fi HUD Theme - Green & Gold) ---
+# --- 1. CSS STYLING (Sci-Fi HUD Theme - Adaptive Icons) ---
 st.markdown("""
 <style>
 .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
 header, footer { visibility: hidden; }
 .stApp { background-color: #050505; color: #e0f7fa; font-family: 'Courier New', Courier, monospace; }
 
-/* HUD Overview */
 .hud-box {
     background: #0a0f14; border: 1px solid #333; border-radius: 4px;
     padding: 15px; margin-bottom: 15px; border-left: 4px solid #00e5ff;
@@ -30,13 +29,11 @@ header, footer { visibility: hidden; }
 .hud-value-blue { font-size: 2.2rem; color: #00e5ff; font-weight: bold; text-shadow: 0 0 10px rgba(0, 229, 255, 0.6); line-height: 1; }
 .hud-value-sub { font-size: 1.2rem; color: #aaa; font-weight: bold; }
 
-/* Energy Bar (18px) */
 .main-bar-container { width: 100%; height: 18px; background: #1c2530; margin: 10px 0; position: relative; border-radius: 2px; overflow: hidden; }
 .main-bar-fill-blue { height: 100%; background: #00e5ff; box-shadow: 0 0 10px #00e5ff; position: absolute; z-index: 3; transition: width 0.5s; }
 .main-bar-fill-gold { height: 100%; background: #FFD600; box-shadow: 0 0 8px #FFD600; position: absolute; z-index: 2; transition: width 0.5s; }
 .main-bar-marker { position: absolute; width: 2px; height: 24px; top: -3px; background: #fff; z-index: 5; box-shadow: 0 0 8px #fff; }
 
-/* Module Cards */
 .module-card {
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid #222; border-radius: 4px;
@@ -115,13 +112,14 @@ else:
                 
                 # --- PRICE DIRECTION TRACKER ---
                 if 'prev_price' not in st.session_state: st.session_state.prev_price = price
-                if price > st.session_state.prev_price:
+                prev_price = st.session_state.prev_price
+                
+                if price > prev_price:
                     p_arrow = '<span style="color:#00e676; font-size:1.8rem; margin-left:10px; text-shadow:0 0 8px #00e676;">▲</span>'
-                elif price < st.session_state.prev_price:
+                elif price < prev_price:
                     p_arrow = '<span style="color:#FFD700; font-size:1.8rem; margin-left:10px; text-shadow:0 0 8px #FFD700;">▼</span>'
                 else:
                     p_arrow = '<span style="color:#546e7a; font-size:1.8rem; margin-left:10px;">—</span>'
-                st.session_state.prev_price = price
 
                 # Health Bar Calculation
                 max_scale = max(bal, eq) * 1.2
@@ -182,7 +180,6 @@ else:
                     max_sqrt_prof = math.sqrt(max_abs_prof)
                     
                     for _, m in magic_stats.iterrows():
-                        # ดึงข้อมูล Lot ของออเดอร์แรกในกลุ่ม
                         m_orders = orders_df[orders_df['Magic'] == m['Magic']]
                         first_lot = m_orders.iloc[0]['Volume']
                         
@@ -197,6 +194,22 @@ else:
                         vu_ticks_html += "".join(['<div class="vu-tick"></div>' for _ in range(max(0, 50 - num_ticks))])
                         overflow_html = '<span class="vu-overflow">▶</span>' if m['Count'] > 50 else ''
                         
+                        # --- DYNAMIC DISTANCE SYMBOL LOGIC ---
+                        curr_abs_dist = abs(m['BEP'] - price)
+                        prev_abs_dist = abs(m['BEP'] - prev_price)
+                        
+                        if curr_abs_dist < prev_abs_dist:
+                            # ราคาเข้าใกล้ BE
+                            d_icon = '»«'
+                            d_col = "#00e676"
+                        elif curr_abs_dist > prev_abs_dist:
+                            # ราคาออกห่าง BE
+                            d_icon = '«»'
+                            d_col = "#FFD700"
+                        else:
+                            d_icon = '↔'
+                            d_col = "#546e7a"
+
                         all_vals = [m['MinP'], m['MaxP'], m['BEP'], price]
                         s_min, s_max = min(all_vals), max(all_vals)
                         s_range = (s_max - s_min) or 1
@@ -205,7 +218,6 @@ else:
                         
                         raw_dist = m['BEP'] - price if m['Type'] == 'Buy' else price - m['BEP']
                         dist_val = f"✅ {abs(raw_dist):,.2f}" if raw_dist <= 0 else f"⚠️ {abs(raw_dist):,.2f}"
-                        dist_color = "#00e676" if raw_dist <= 0 else "#FFD700"
 
                         m_html = f"""
 <div class="module-card">
@@ -229,10 +241,13 @@ else:
 <div class="tick-order tick-be" style="left:{get_pct(m['BEP'])}%"></div>
 <div class="tick-current" style="left:{get_pct(price)}%"></div>
 </div>
-<div class="data-text" style="color:{dist_color}"><span style="font-size:1.1rem; vertical-align:middle;">↔</span> {dist_val}</div>
+<div class="data-text" style="color:{d_col}"><span style="font-size:1.1rem; vertical-align:middle;">{d_icon}</span> <span style="color:{'#00e676' if raw_dist <= 0 else '#FFD700'}">{dist_val}</span></div>
 </div>
 </div>"""
                         st.markdown(m_html, unsafe_allow_html=True)
+
+                    # Update session state price for next loop
+                    st.session_state.prev_price = price
 
                     # --- PART 3: STRUCTURE GRAPH (Protected) ---
                     st.markdown('<div class="section-title">PORTFOLIO STRUCTURE MAP</div>', unsafe_allow_html=True)
@@ -247,14 +262,6 @@ else:
                     fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='text', text=labels, textposition="top center", textfont=dict(color='#E0E0E0', size=11), hoverinfo='skip'))
                     fig_p.update_layout(xaxis=dict(showticklabels=False, type='category', gridcolor='#333'), yaxis=dict(gridcolor='#222', tickfont=dict(color='gray', size=10)), margin=dict(l=40, r=20, t=40, b=20), height=350, showlegend=False, paper_bgcolor='#050505', plot_bgcolor='#050505')
                     st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
-
-                    # --- PART 4: SUMMARY TABLE ---
-                    st.markdown('<div class="hud-label" style="margin-top:20px; margin-bottom:15px;">MISSION DATA LOG SUMMARY</div>', unsafe_allow_html=True)
-                    summary_df = magic_stats[['Magic', 'Type', 'Count', 'Lots', 'BEP', 'Profit']].copy()
-                    summary_df['DIST'] = summary_df.apply(lambda r: (f"✅ {abs(r['BEP']-price):,.2f}" if (r['BEP']-price if r['Type']=='Buy' else price-r['BEP']) <= 0 else f"⚠️ {abs(r['BEP']-price):,.2f}"), axis=1)
-                    summary_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'BE_PRICE', 'PROFIT', 'DIST']
-                    for c in ['LOTS', 'BE_PRICE', 'PROFIT']: summary_df[c] = summary_df[c].map('{:,.2f}'.format)
-                    st.dataframe(summary_df.style.map(lambda v: f'color: {"#00C853" if v == "Buy" else "#FFD700"}; font-weight: bold', subset=['TYPE']), use_container_width=True, hide_index=True)
 
     except Exception as e:
         st.error(f"SYSTEM FAILURE: {e}")
