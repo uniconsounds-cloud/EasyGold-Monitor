@@ -12,7 +12,7 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v20", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v21", page_icon="🛸", layout="wide")
 
 # --- 1. CSS STYLING (Sci-Fi HUD Theme - Green & Gold) ---
 st.markdown("""
@@ -105,12 +105,10 @@ else:
             if not target_df.empty:
                 latest = target_df.iloc[-1]
                 
-                # Core Data
                 price = float(latest.get('CurrentPrice', 0.0))
                 bal, eq, prof = float(latest.get('Balance', 0.0)), float(latest.get('Equity', 0.0)), float(latest.get('TotalProfit', 0.0))
                 lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
                 
-                # --- PRICE DIRECTION TRACKER ---
                 if 'prev_price' not in st.session_state: st.session_state.prev_price = price
                 prev_p = st.session_state.prev_price
                 
@@ -121,14 +119,11 @@ else:
                 else:
                     p_arrow = '<span style="color:#546e7a; font-size:1.8rem; margin-left:10px;">—</span>'
 
-                # Health Bar Calculation
                 max_scale = max(bal, eq) * 1.2
                 eq_pct, bal_pct = (eq/max_scale)*100, (bal/max_scale)*100
                 gold_bar_html = f'<div class="main-bar-fill-gold" style="left: {eq_pct}%; width: {bal_pct-eq_pct}%;"></div>' if eq < bal else ""
-
                 prof_color = "#00e676" if prof >= 0 else "#FFD700"
 
-                # --- PART 1: HUD HEADER ---
                 h_html = f"""
 <div class="hud-box">
 <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
@@ -156,7 +151,6 @@ else:
 </div>"""
                 st.markdown(h_html, unsafe_allow_html=True)
 
-                # --- PART 2: ACTIVE MODULES ---
                 st.markdown('<div class="hud-label" style="margin-top:10px; margin-bottom:15px;">ACTIVE MODULE ANALYSIS</div>', unsafe_allow_html=True)
                 
                 orders_str = latest.get('JSON_Data', '[]')
@@ -194,7 +188,6 @@ else:
                         vu_ticks_html += "".join(['<div class="vu-tick"></div>' for _ in range(max(0, 50 - num_ticks))])
                         overflow_html = '<span class="vu-overflow">▶</span>' if m['Count'] > 50 else ''
                         
-                        # Dynamic Icon Logic
                         curr_abs_d = abs(m['BEP'] - price)
                         prev_abs_d = abs(m['BEP'] - prev_p)
                         if curr_abs_d < prev_abs_d: d_icon, d_icon_col = '»«', "#00e676"
@@ -239,30 +232,47 @@ else:
 
                     st.session_state.prev_price = price
 
-                    # --- PART 3: STRUCTURE GRAPH ---
+                    # --- PART 3: STRUCTURE GRAPH (Enhanced Tooltips) ---
                     st.markdown('<div class="section-title">PORTFOLIO STRUCTURE MAP</div>', unsafe_allow_html=True)
                     fig_p = go.Figure()
                     fig_p.add_hline(y=price, line_dash="dash", line_color="#29B6F6", line_width=1, annotation_text="Market")
+                    
+                    # 1. ขีดออเดอร์ย่อย (Skip hover เพื่อไม่ให้รก)
                     fig_p.add_trace(go.Scatter(x=orders_df['Magic'].astype(str), y=orders_df['Open Price'], mode='markers', marker=dict(symbol='line-ew', size=25, line=dict(width=1, color="rgba(255, 255, 255, 0.25)")), hoverinfo='skip'))
-                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#FFD700")), hoverinfo='skip'))
-                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MinP'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")), hoverinfo='skip'))
-                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['BEP'], mode='markers', marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), hoverinfo='skip'))
+                    
+                    # 2. ขีดบนสุด (Max Price) - แสดงข้อมูลเมื่อชี้
+                    fig_p.add_trace(go.Scatter(
+                        x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='markers', 
+                        marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#FFD700")),
+                        name="Max Price", hovertemplate="Max Price: %{y:,.2f}<extra></extra>"
+                    ))
+                    
+                    # 3. ขีดล่างสุด (Min Price) - แสดงข้อมูลเมื่อชี้
+                    fig_p.add_trace(go.Scatter(
+                        x=magic_stats['Magic'].astype(str), y=magic_stats['MinP'], mode='markers', 
+                        marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")),
+                        name="Min Price", hovertemplate="Min Price: %{y:,.2f}<extra></extra>"
+                    ))
+                    
+                    # 4. ขีดสีเหลือง (BE Price) - แสดงข้อมูลเมื่อชี้
+                    fig_p.add_trace(go.Scatter(
+                        x=magic_stats['Magic'].astype(str), y=magic_stats['BEP'], mode='markers', 
+                        marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")),
+                        name="BE Price", hovertemplate="BE Price: %{y:,.2f}<extra></extra>"
+                    ))
                     
                     labels = ["{}<br><span style='color:{}'>{}</span>:{}".format(m_id, ("#00C853" if t=="Buy" else "#FFD700"), t, c) for m_id, t, c in zip(magic_stats['Magic'], magic_stats['Type'], magic_stats['Count'])]
                     fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='text', text=labels, textposition="top center", textfont=dict(color='#E0E0E0', size=11), hoverinfo='skip'))
+                    
                     fig_p.update_layout(xaxis=dict(showticklabels=False, type='category', gridcolor='#333'), yaxis=dict(gridcolor='#222', tickfont=dict(color='gray', size=10)), margin=dict(l=40, r=20, t=40, b=20), height=350, showlegend=False, paper_bgcolor='#050505', plot_bgcolor='#050505')
                     st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
 
                     # --- PART 4: SUMMARY TABLE ---
                     st.markdown('<div class="hud-label" style="margin-top:20px; margin-bottom:15px;">MISSION DATA LOG SUMMARY</div>', unsafe_allow_html=True)
                     summary_df = magic_stats[['Magic', 'Type', 'Count', 'Lots', 'BEP', 'Profit']].copy()
-                    def get_t_dist(row):
-                        d = row['BEP'] - price if row['Type'] == 'Buy' else price - row['BEP']
-                        return f"✅ {abs(d):,.2f}" if d <= 0 else f"⚠️ {abs(d):,.2f}"
-                    summary_df['DIST'] = summary_df.apply(get_t_dist, axis=1)
+                    summary_df['DIST'] = summary_df.apply(lambda r: (f"✅ {abs(r['BEP']-price):,.2f}" if (r['BEP']-price if r['Type']=='Buy' else price-r['BEP']) <= 0 else f"⚠️ {abs(r['BEP']-price):,.2f}"), axis=1)
                     summary_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'BE_PRICE', 'PROFIT', 'DIST']
                     for c in ['LOTS', 'BE_PRICE', 'PROFIT']: summary_df[c] = summary_df[c].map('{:,.2f}'.format)
-                    
                     st.dataframe(summary_df.style.map(lambda v: f'color: {"#00C853" if v == "Buy" else "#FFD700"}; font-weight: bold', subset=['TYPE']), use_container_width=True, hide_index=True)
 
     except Exception as e:
