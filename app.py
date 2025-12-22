@@ -12,15 +12,16 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v25", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v26", page_icon="🛸", layout="wide")
 
-# --- 1. CSS STYLING (Sci-Fi HUD Theme - Minimal & Functional) ---
+# --- 1. CSS STYLING (Sci-Fi HUD + Mobile Touch Tooltips) ---
 st.markdown("""
 <style>
 .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
 header, footer { visibility: hidden; }
 .stApp { background-color: #050505; color: #e0f7fa; font-family: 'Courier New', Courier, monospace; }
 
+/* HUD Overview */
 .hud-box {
     background: #0a0f14; border: 1px solid #333; border-radius: 4px;
     padding: 15px; margin-bottom: 15px; border-left: 4px solid #00e5ff;
@@ -34,6 +35,7 @@ header, footer { visibility: hidden; }
 .main-bar-fill-gold { height: 100%; background: #FFD600; box-shadow: 0 0 8px #FFD600; position: absolute; z-index: 2; transition: width 0.5s; }
 .main-bar-marker { position: absolute; width: 2px; height: 24px; top: -3px; background: #fff; z-index: 5; box-shadow: 0 0 8px #fff; }
 
+/* Module Cards */
 .module-card {
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid #222; border-radius: 4px;
@@ -63,9 +65,31 @@ header, footer { visibility: hidden; }
 .vu-tick.active-gold { background: #FFD700; box-shadow: 0 0 5px #FFD700; }
 .vu-overflow { color: #FFD700; font-size: 1.1rem; margin-left: 5px; font-weight: bold; }
 
-/* บาร์แถว 3: ปรับกลับมาบางสวยและรองรับการแตะทั้งแถบ */
+/* แถบราคา (แถว 3) พร้อมระบบ Popup สำหรับมือถือ */
 .scale-row { display: flex; align-items: center; justify-content: space-between; }
-.price-scale { flex-grow: 1; height: 18px; background: rgba(255,255,255,0.03); margin-right: 15px; position: relative; border-bottom: 1px solid #333; cursor: help; }
+.price-scale { 
+    flex-grow: 1; height: 18px; background: rgba(255,255,255,0.03); 
+    margin-right: 15px; position: relative; border-bottom: 1px solid #333; 
+    cursor: pointer; overflow: visible; 
+}
+
+/* สร้างกล่อง Popup เมื่อมีการแตะ (Active) หรือวางเมาส์ (Hover) */
+.price-scale::after {
+    content: attr(data-info);
+    position: absolute;
+    bottom: 30px; left: 50%;
+    transform: translateX(-50%);
+    background: #000; color: #00e5ff;
+    padding: 5px 10px; font-size: 0.75rem; font-weight: bold;
+    border: 1px solid #00e5ff; border-radius: 3px;
+    white-space: nowrap; z-index: 1000;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s;
+    box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
+}
+.price-scale:hover::after, .price-scale:active::after {
+    opacity: 1;
+}
 
 .tick-unit { position: absolute; pointer-events: none; }
 .tick-order { width: 1px; height: 12px; background: #555; bottom: 0; }
@@ -128,7 +152,6 @@ else:
                 gold_bar_html = f'<div class="main-bar-fill-gold" style="left: {eq_pct}%; width: {bal_pct-eq_pct}%;"></div>' if eq < bal else ""
                 prof_color = "#00e676" if prof >= 0 else "#FFD700"
 
-                # --- PART 1: HUD HEADER ---
                 h_html = f"""
 <div class="hud-box">
 <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
@@ -204,7 +227,6 @@ else:
                         s_range = (s_max - s_min) or 1
                         def get_pct(v): return ((v - s_min) / s_range) * 100
                         
-                        # สร้าง Ticks แบบดั้งเดิมที่คมชัด
                         order_ticks = ""
                         for op in m_orders['Open Price']:
                             is_main_cls = "tick-main" if op in [m["MinP"], m["MaxP"]] else "tick-order"
@@ -213,8 +235,8 @@ else:
                         raw_dist = m['BEP'] - price if m['Type'] == 'Buy' else price - m['BEP']
                         dist_str = f"✅ {abs(raw_dist):,.2f}" if raw_dist <= 0 else f"⚠️ {abs(raw_dist):,.2f}"
 
-                        # ข้อมูลสรุปที่จะขึ้นเมื่อแตะบาร์แถวที่ 3
-                        bar_summary = f"MIN: {m['MinP']:,.2f} | MAX: {m['MaxP']:,.2f} | BE: {m['BEP']:,.2f} | MKT: {price:,.2f}"
+                        # ข้อมูลสรุปที่จะขึ้นเมื่อแตะบาร์ (Mobile Optimized)
+                        bar_data = f"MIN:{m['MinP']:,.2f} MAX:{m['MaxP']:,.2f} BE:{m['BEP']:,.2f}"
 
                         m_html = f"""
 <div class="module-card">
@@ -233,7 +255,7 @@ else:
 <div class="square-box box-count">{m['Count']}</div>
 </div>
 <div class="scale-row">
-<div class="price-scale" title="{bar_summary}">
+<div class="price-scale" data-info="{bar_data}">
 {order_ticks}
 <div class="tick-unit tick-be" style="left:{get_pct(m['BEP'])}%"></div>
 <div class="tick-unit tick-current" style="left:{get_pct(price)}%"></div>
@@ -245,7 +267,7 @@ else:
 
                     st.session_state.prev_price = price
 
-                    # --- PART 3: STRUCTURE GRAPH (Plotly Protected) ---
+                    # --- PART 3: STRUCTURE GRAPH (Protected) ---
                     st.markdown('<div class="section-title">PORTFOLIO STRUCTURE MAP</div>', unsafe_allow_html=True)
                     fig_p = go.Figure()
                     fig_p.add_hline(y=price, line_dash="dash", line_color="#29B6F6", line_width=1, annotation_text="Market")
