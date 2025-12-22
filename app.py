@@ -12,7 +12,7 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v21", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v22", page_icon="🛸", layout="wide")
 
 # --- 1. CSS STYLING (Sci-Fi HUD Theme - Green & Gold) ---
 st.markdown("""
@@ -64,7 +64,7 @@ header, footer { visibility: hidden; }
 .vu-overflow { color: #FFD700; font-size: 1.1rem; margin-left: 5px; font-weight: bold; }
 
 .scale-row { display: flex; align-items: center; justify-content: space-between; }
-.price-scale { flex-grow: 1; height: 18px; background: rgba(255,255,255,0.03); margin-right: 15px; position: relative; border-bottom: 1px solid #333; }
+.price-scale { flex-grow: 1; height: 18px; background: rgba(255,255,255,0.03); margin-right: 15px; position: relative; border-bottom: 1px solid #333; cursor: crosshair; }
 .tick-order { position: absolute; width: 1px; height: 12px; background: #555; bottom: 0; }
 .tick-main { width: 2px; height: 18px; background: #fff; box-shadow: 0 0 5px #fff; z-index: 3; bottom: 0; }
 .tick-be { width: 3px; height: 22px; background: #FFD600; box-shadow: 0 0 8px #FFD600; z-index: 5; bottom: -2px; }
@@ -105,13 +105,14 @@ else:
             if not target_df.empty:
                 latest = target_df.iloc[-1]
                 
+                # Core Data
                 price = float(latest.get('CurrentPrice', 0.0))
                 bal, eq, prof = float(latest.get('Balance', 0.0)), float(latest.get('Equity', 0.0)), float(latest.get('TotalProfit', 0.0))
                 lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
                 
+                # PRICE DIRECTION TRACKER
                 if 'prev_price' not in st.session_state: st.session_state.prev_price = price
                 prev_p = st.session_state.prev_price
-                
                 if price > prev_p:
                     p_arrow = '<span style="color:#00e676; font-size:1.8rem; margin-left:10px; text-shadow:0 0 8px #00e676;">▲</span>'
                 elif price < prev_p:
@@ -131,8 +132,8 @@ else:
 <div style="text-align:right;"><div class="hud-label">BALANCE</div><div class="hud-value-sub">{bal:,.2f}</div></div>
 </div>
 <div class="main-bar-container">
-<div class="main-bar-marker" style="left: {bal_pct}%"></div>
-<div class="main-bar-fill-blue" style="width: {eq_pct}%;"></div>
+<div class="main-bar-marker" style="left: {bal_pct}%" title="BALANCE: {bal:,.2f}"></div>
+<div class="main-bar-fill-blue" style="width: {eq_pct}%;" title="EQUITY: {eq:,.2f}"></div>
 {gold_bar_html}
 </div>
 <div style="display:flex; justify-content:space-between; margin-top:10px;">
@@ -198,7 +199,13 @@ else:
                         s_min, s_max = min(all_vals), max(all_vals)
                         s_range = (s_max - s_min) or 1
                         def get_pct(v): return ((v - s_min) / s_range) * 100
-                        order_ticks = "".join([f'<div class="tick-order {"tick-main" if op in [m["MinP"], m["MaxP"]] else ""}" style="left:{get_pct(op)}%"></div>' for op in m_orders['Open Price']])
+                        
+                        # สร้าง Ticks สำหรับออเดอร์พร้อมฟีเจอร์แสดงราคาเมื่อแตะ
+                        order_ticks = ""
+                        for op in m_orders['Open Price']:
+                            is_main = "tick-main" if op in [m["MinP"], m["MaxP"]] else ""
+                            label = "Max Price" if op == m["MaxP"] else ("Min Price" if op == m["MinP"] else "Order Price")
+                            order_ticks += f'<div class="tick-order {is_main}" style="left:{get_pct(op)}%" title="{label}: {op:,.2f}"></div>'
                         
                         raw_dist = m['BEP'] - price if m['Type'] == 'Buy' else price - m['BEP']
                         dist_str = f"✅ {abs(raw_dist):,.2f}" if raw_dist <= 0 else f"⚠️ {abs(raw_dist):,.2f}"
@@ -222,8 +229,8 @@ else:
 <div class="scale-row">
 <div class="price-scale">
 {order_ticks}
-<div class="tick-order tick-be" style="left:{get_pct(m['BEP'])}%"></div>
-<div class="tick-current" style="left:{get_pct(price)}%"></div>
+<div class="tick-order tick-be" style="left:{get_pct(m['BEP'])}%" title="BE Price: {m['BEP']:,.2f}"></div>
+<div class="tick-current" style="left:{get_pct(price)}%" title="Market Price: {price:,.2f}"></div>
 </div>
 <div class="data-text" style="color:{d_icon_col}"><span style="font-size:1.1rem; vertical-align:middle;">{d_icon}</span> <span style="color:{'#00e676' if raw_dist <= 0 else '#FFD700'}">{dist_str}</span></div>
 </div>
@@ -232,45 +239,27 @@ else:
 
                     st.session_state.prev_price = price
 
-                    # --- PART 3: STRUCTURE GRAPH (Enhanced Tooltips) ---
+                    # --- PART 3: STRUCTURE GRAPH ---
                     st.markdown('<div class="section-title">PORTFOLIO STRUCTURE MAP</div>', unsafe_allow_html=True)
                     fig_p = go.Figure()
                     fig_p.add_hline(y=price, line_dash="dash", line_color="#29B6F6", line_width=1, annotation_text="Market")
-                    
-                    # 1. ขีดออเดอร์ย่อย (Skip hover เพื่อไม่ให้รก)
                     fig_p.add_trace(go.Scatter(x=orders_df['Magic'].astype(str), y=orders_df['Open Price'], mode='markers', marker=dict(symbol='line-ew', size=25, line=dict(width=1, color="rgba(255, 255, 255, 0.25)")), hoverinfo='skip'))
-                    
-                    # 2. ขีดบนสุด (Max Price) - แสดงข้อมูลเมื่อชี้
-                    fig_p.add_trace(go.Scatter(
-                        x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='markers', 
-                        marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#FFD700")),
-                        name="Max Price", hovertemplate="Max Price: %{y:,.2f}<extra></extra>"
-                    ))
-                    
-                    # 3. ขีดล่างสุด (Min Price) - แสดงข้อมูลเมื่อชี้
-                    fig_p.add_trace(go.Scatter(
-                        x=magic_stats['Magic'].astype(str), y=magic_stats['MinP'], mode='markers', 
-                        marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")),
-                        name="Min Price", hovertemplate="Min Price: %{y:,.2f}<extra></extra>"
-                    ))
-                    
-                    # 4. ขีดสีเหลือง (BE Price) - แสดงข้อมูลเมื่อชี้
-                    fig_p.add_trace(go.Scatter(
-                        x=magic_stats['Magic'].astype(str), y=magic_stats['BEP'], mode='markers', 
-                        marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")),
-                        name="BE Price", hovertemplate="BE Price: %{y:,.2f}<extra></extra>"
-                    ))
+                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#FFD700")), name="Max", hovertemplate="Max: %{y:,.2f}<extra></extra>"))
+                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MinP'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")), name="Min", hovertemplate="Min: %{y:,.2f}<extra></extra>"))
+                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['BEP'], mode='markers', marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), name="BE", hovertemplate="BE: %{y:,.2f}<extra></extra>"))
                     
                     labels = ["{}<br><span style='color:{}'>{}</span>:{}".format(m_id, ("#00C853" if t=="Buy" else "#FFD700"), t, c) for m_id, t, c in zip(magic_stats['Magic'], magic_stats['Type'], magic_stats['Count'])]
                     fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='text', text=labels, textposition="top center", textfont=dict(color='#E0E0E0', size=11), hoverinfo='skip'))
-                    
                     fig_p.update_layout(xaxis=dict(showticklabels=False, type='category', gridcolor='#333'), yaxis=dict(gridcolor='#222', tickfont=dict(color='gray', size=10)), margin=dict(l=40, r=20, t=40, b=20), height=350, showlegend=False, paper_bgcolor='#050505', plot_bgcolor='#050505')
                     st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
 
                     # --- PART 4: SUMMARY TABLE ---
                     st.markdown('<div class="hud-label" style="margin-top:20px; margin-bottom:15px;">MISSION DATA LOG SUMMARY</div>', unsafe_allow_html=True)
                     summary_df = magic_stats[['Magic', 'Type', 'Count', 'Lots', 'BEP', 'Profit']].copy()
-                    summary_df['DIST'] = summary_df.apply(lambda r: (f"✅ {abs(r['BEP']-price):,.2f}" if (r['BEP']-price if r['Type']=='Buy' else price-r['BEP']) <= 0 else f"⚠️ {abs(r['BEP']-price):,.2f}"), axis=1)
+                    def get_t_dist(row):
+                        d = row['BEP'] - price if row['Type'] == 'Buy' else price - row['BEP']
+                        return f"✅ {abs(d):,.2f}" if d <= 0 else f"⚠️ {abs(d):,.2f}"
+                    summary_df['DIST'] = summary_df.apply(get_t_dist, axis=1)
                     summary_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'BE_PRICE', 'PROFIT', 'DIST']
                     for c in ['LOTS', 'BE_PRICE', 'PROFIT']: summary_df[c] = summary_df[c].map('{:,.2f}'.format)
                     st.dataframe(summary_df.style.map(lambda v: f'color: {"#00C853" if v == "Buy" else "#FFD700"}; font-weight: bold', subset=['TYPE']), use_container_width=True, hide_index=True)
