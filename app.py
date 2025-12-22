@@ -12,9 +12,9 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v24", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v25", page_icon="🛸", layout="wide")
 
-# --- 1. CSS STYLING (Sci-Fi HUD Theme - Touch Optimized) ---
+# --- 1. CSS STYLING (Sci-Fi HUD Theme - Minimal & Functional) ---
 st.markdown("""
 <style>
 .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
@@ -63,16 +63,15 @@ header, footer { visibility: hidden; }
 .vu-tick.active-gold { background: #FFD700; box-shadow: 0 0 5px #FFD700; }
 .vu-overflow { color: #FFD700; font-size: 1.1rem; margin-left: 5px; font-weight: bold; }
 
-/* ปรับบาร์แถว 3 ให้แสดงข้อมูลเมื่อแตะ */
+/* บาร์แถว 3: ปรับกลับมาบางสวยและรองรับการแตะทั้งแถบ */
 .scale-row { display: flex; align-items: center; justify-content: space-between; }
-.price-scale { flex-grow: 1; height: 18px; background: rgba(255,255,255,0.03); margin-right: 15px; position: relative; border-bottom: 1px solid #333; overflow: visible; }
+.price-scale { flex-grow: 1; height: 18px; background: rgba(255,255,255,0.03); margin-right: 15px; position: relative; border-bottom: 1px solid #333; cursor: help; }
 
-/* ปรับขนาด Ticks ให้กว้างขึ้นเล็กน้อยเพื่อรองรับการแตะบนมือถือ */
-.tick-unit { position: absolute; cursor: help; z-index: 10; width: 5px; margin-left: -2px; }
-.tick-order { height: 12px; background: #555; bottom: 0; }
-.tick-main { height: 18px; background: #fff; box-shadow: 0 0 5px #fff; bottom: 0; }
-.tick-be { height: 22px; background: #FFD600; box-shadow: 0 0 8px #FFD600; bottom: -2px; z-index: 12; }
-.tick-current { height: 28px; border-left: 2px dashed #00e5ff; top: -5px; z-index: 13; width: 2px; }
+.tick-unit { position: absolute; pointer-events: none; }
+.tick-order { width: 1px; height: 12px; background: #555; bottom: 0; }
+.tick-main { width: 2px; height: 18px; background: #fff; box-shadow: 0 0 5px #fff; bottom: 0; }
+.tick-be { width: 3px; height: 22px; background: #FFD600; box-shadow: 0 0 8px #FFD600; bottom: -2px; z-index: 5; }
+.tick-current { width: 1px; height: 28px; border-left: 1px dashed #00e5ff; top: -5px; z-index: 6; }
 
 .data-text { font-size: 0.9rem; font-weight: bold; white-space: nowrap; font-family: monospace; line-height: 18px; }
 .section-title { font-size: 0.9rem; font-weight: 700; color: #E0E0E0; border-left: 4px solid #29B6F6; padding-left: 10px; margin-top: 25px; margin-bottom: 15px; text-transform: uppercase; }
@@ -114,7 +113,7 @@ else:
                 bal, eq, prof = float(latest.get('Balance', 0.0)), float(latest.get('Equity', 0.0)), float(latest.get('TotalProfit', 0.0))
                 lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
                 
-                # Price Direction
+                # PRICE DIRECTION TRACKER
                 if 'prev_price' not in st.session_state: st.session_state.prev_price = price
                 prev_p = st.session_state.prev_price
                 if price > prev_p:
@@ -129,6 +128,7 @@ else:
                 gold_bar_html = f'<div class="main-bar-fill-gold" style="left: {eq_pct}%; width: {bal_pct-eq_pct}%;"></div>' if eq < bal else ""
                 prof_color = "#00e676" if prof >= 0 else "#FFD700"
 
+                # --- PART 1: HUD HEADER ---
                 h_html = f"""
 <div class="hud-box">
 <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
@@ -136,8 +136,8 @@ else:
 <div style="text-align:right;"><div class="hud-label">BALANCE</div><div class="hud-value-sub">{bal:,.2f}</div></div>
 </div>
 <div class="main-bar-container">
-<div class="main-bar-marker" style="left: {bal_pct}%" title="BALANCE: {bal:,.2f}"></div>
-<div class="main-bar-fill-blue" style="width: {eq_pct}%;" title="EQUITY: {eq:,.2f}"></div>
+<div class="main-bar-marker" style="left: {bal_pct}%"></div>
+<div class="main-bar-fill-blue" style="width: {eq_pct}%;"></div>
 {gold_bar_html}
 </div>
 <div style="display:flex; justify-content:space-between; margin-top:10px;">
@@ -204,15 +204,17 @@ else:
                         s_range = (s_max - s_min) or 1
                         def get_pct(v): return ((v - s_min) / s_range) * 100
                         
-                        # สร้าง Ticks สำหรับออเดอร์พร้อมฟีเจอร์แสดงราคาเมื่อแตะ (Injection)
+                        # สร้าง Ticks แบบดั้งเดิมที่คมชัด
                         order_ticks = ""
                         for op in m_orders['Open Price']:
                             is_main_cls = "tick-main" if op in [m["MinP"], m["MaxP"]] else "tick-order"
-                            l_title = f"MAX: {op:,.2f}" if op == m["MaxP"] else (f"MIN: {op:,.2f}" if op == m["MinP"] else f"PRICE: {op:,.2f}")
-                            order_ticks += f'<div class="tick-unit {is_main_cls}" style="left:{get_pct(op)}%" title="{l_title}"></div>'
+                            order_ticks += f'<div class="tick-unit {is_main_cls}" style="left:{get_pct(op)}%"></div>'
                         
                         raw_dist = m['BEP'] - price if m['Type'] == 'Buy' else price - m['BEP']
                         dist_str = f"✅ {abs(raw_dist):,.2f}" if raw_dist <= 0 else f"⚠️ {abs(raw_dist):,.2f}"
+
+                        # ข้อมูลสรุปที่จะขึ้นเมื่อแตะบาร์แถวที่ 3
+                        bar_summary = f"MIN: {m['MinP']:,.2f} | MAX: {m['MaxP']:,.2f} | BE: {m['BEP']:,.2f} | MKT: {price:,.2f}"
 
                         m_html = f"""
 <div class="module-card">
@@ -231,10 +233,10 @@ else:
 <div class="square-box box-count">{m['Count']}</div>
 </div>
 <div class="scale-row">
-<div class="price-scale">
+<div class="price-scale" title="{bar_summary}">
 {order_ticks}
-<div class="tick-unit tick-be" style="left:{get_pct(m['BEP'])}%" title="BE PRICE: {m['BEP']:,.2f}"></div>
-<div class="tick-unit tick-current" style="left:{get_pct(price)}%" title="MKT PRICE: {price:,.2f}"></div>
+<div class="tick-unit tick-be" style="left:{get_pct(m['BEP'])}%"></div>
+<div class="tick-unit tick-current" style="left:{get_pct(price)}%"></div>
 </div>
 <div class="data-text" style="color:{d_icon_col}"><span style="font-size:1.1rem; vertical-align:middle;">{d_icon}</span> <span style="color:{'#00e676' if raw_dist <= 0 else '#FFD700'}">{dist_str}</span></div>
 </div>
@@ -243,7 +245,7 @@ else:
 
                     st.session_state.prev_price = price
 
-                    # --- PART 3: STRUCTURE GRAPH ---
+                    # --- PART 3: STRUCTURE GRAPH (Plotly Protected) ---
                     st.markdown('<div class="section-title">PORTFOLIO STRUCTURE MAP</div>', unsafe_allow_html=True)
                     fig_p = go.Figure()
                     fig_p.add_hline(y=price, line_dash="dash", line_color="#29B6F6", line_width=1, annotation_text="Market")
