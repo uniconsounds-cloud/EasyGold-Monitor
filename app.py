@@ -12,9 +12,9 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v19", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v20", page_icon="🛸", layout="wide")
 
-# --- 1. CSS STYLING (Sci-Fi HUD Theme - Adaptive Icons) ---
+# --- 1. CSS STYLING (Sci-Fi HUD Theme - Green & Gold) ---
 st.markdown("""
 <style>
 .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
@@ -112,11 +112,11 @@ else:
                 
                 # --- PRICE DIRECTION TRACKER ---
                 if 'prev_price' not in st.session_state: st.session_state.prev_price = price
-                prev_price = st.session_state.prev_price
+                prev_p = st.session_state.prev_price
                 
-                if price > prev_price:
+                if price > prev_p:
                     p_arrow = '<span style="color:#00e676; font-size:1.8rem; margin-left:10px; text-shadow:0 0 8px #00e676;">▲</span>'
-                elif price < prev_price:
+                elif price < prev_p:
                     p_arrow = '<span style="color:#FFD700; font-size:1.8rem; margin-left:10px; text-shadow:0 0 8px #FFD700;">▼</span>'
                 else:
                     p_arrow = '<span style="color:#546e7a; font-size:1.8rem; margin-left:10px;">—</span>'
@@ -194,21 +194,12 @@ else:
                         vu_ticks_html += "".join(['<div class="vu-tick"></div>' for _ in range(max(0, 50 - num_ticks))])
                         overflow_html = '<span class="vu-overflow">▶</span>' if m['Count'] > 50 else ''
                         
-                        # --- DYNAMIC DISTANCE SYMBOL LOGIC ---
-                        curr_abs_dist = abs(m['BEP'] - price)
-                        prev_abs_dist = abs(m['BEP'] - prev_price)
-                        
-                        if curr_abs_dist < prev_abs_dist:
-                            # ราคาเข้าใกล้ BE
-                            d_icon = '»«'
-                            d_col = "#00e676"
-                        elif curr_abs_dist > prev_abs_dist:
-                            # ราคาออกห่าง BE
-                            d_icon = '«»'
-                            d_col = "#FFD700"
-                        else:
-                            d_icon = '↔'
-                            d_col = "#546e7a"
+                        # Dynamic Icon Logic
+                        curr_abs_d = abs(m['BEP'] - price)
+                        prev_abs_d = abs(m['BEP'] - prev_p)
+                        if curr_abs_d < prev_abs_d: d_icon, d_icon_col = '»«', "#00e676"
+                        elif curr_abs_d > prev_abs_d: d_icon, d_icon_col = '«»', "#FFD700"
+                        else: d_icon, d_icon_col = '↔', "#546e7a"
 
                         all_vals = [m['MinP'], m['MaxP'], m['BEP'], price]
                         s_min, s_max = min(all_vals), max(all_vals)
@@ -217,7 +208,7 @@ else:
                         order_ticks = "".join([f'<div class="tick-order {"tick-main" if op in [m["MinP"], m["MaxP"]] else ""}" style="left:{get_pct(op)}%"></div>' for op in m_orders['Open Price']])
                         
                         raw_dist = m['BEP'] - price if m['Type'] == 'Buy' else price - m['BEP']
-                        dist_val = f"✅ {abs(raw_dist):,.2f}" if raw_dist <= 0 else f"⚠️ {abs(raw_dist):,.2f}"
+                        dist_str = f"✅ {abs(raw_dist):,.2f}" if raw_dist <= 0 else f"⚠️ {abs(raw_dist):,.2f}"
 
                         m_html = f"""
 <div class="module-card">
@@ -241,15 +232,14 @@ else:
 <div class="tick-order tick-be" style="left:{get_pct(m['BEP'])}%"></div>
 <div class="tick-current" style="left:{get_pct(price)}%"></div>
 </div>
-<div class="data-text" style="color:{d_col}"><span style="font-size:1.1rem; vertical-align:middle;">{d_icon}</span> <span style="color:{'#00e676' if raw_dist <= 0 else '#FFD700'}">{dist_val}</span></div>
+<div class="data-text" style="color:{d_icon_col}"><span style="font-size:1.1rem; vertical-align:middle;">{d_icon}</span> <span style="color:{'#00e676' if raw_dist <= 0 else '#FFD700'}">{dist_str}</span></div>
 </div>
 </div>"""
                         st.markdown(m_html, unsafe_allow_html=True)
 
-                    # Update session state price for next loop
                     st.session_state.prev_price = price
 
-                    # --- PART 3: STRUCTURE GRAPH (Protected) ---
+                    # --- PART 3: STRUCTURE GRAPH ---
                     st.markdown('<div class="section-title">PORTFOLIO STRUCTURE MAP</div>', unsafe_allow_html=True)
                     fig_p = go.Figure()
                     fig_p.add_hline(y=price, line_dash="dash", line_color="#29B6F6", line_width=1, annotation_text="Market")
@@ -262,6 +252,18 @@ else:
                     fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='text', text=labels, textposition="top center", textfont=dict(color='#E0E0E0', size=11), hoverinfo='skip'))
                     fig_p.update_layout(xaxis=dict(showticklabels=False, type='category', gridcolor='#333'), yaxis=dict(gridcolor='#222', tickfont=dict(color='gray', size=10)), margin=dict(l=40, r=20, t=40, b=20), height=350, showlegend=False, paper_bgcolor='#050505', plot_bgcolor='#050505')
                     st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
+
+                    # --- PART 4: SUMMARY TABLE ---
+                    st.markdown('<div class="hud-label" style="margin-top:20px; margin-bottom:15px;">MISSION DATA LOG SUMMARY</div>', unsafe_allow_html=True)
+                    summary_df = magic_stats[['Magic', 'Type', 'Count', 'Lots', 'BEP', 'Profit']].copy()
+                    def get_t_dist(row):
+                        d = row['BEP'] - price if row['Type'] == 'Buy' else price - row['BEP']
+                        return f"✅ {abs(d):,.2f}" if d <= 0 else f"⚠️ {abs(d):,.2f}"
+                    summary_df['DIST'] = summary_df.apply(get_t_dist, axis=1)
+                    summary_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'BE_PRICE', 'PROFIT', 'DIST']
+                    for c in ['LOTS', 'BE_PRICE', 'PROFIT']: summary_df[c] = summary_df[c].map('{:,.2f}'.format)
+                    
+                    st.dataframe(summary_df.style.map(lambda v: f'color: {"#00C853" if v == "Buy" else "#FFD700"}; font-weight: bold', subset=['TYPE']), use_container_width=True, hide_index=True)
 
     except Exception as e:
         st.error(f"SYSTEM FAILURE: {e}")
