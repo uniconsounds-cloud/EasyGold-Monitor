@@ -12,17 +12,17 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v28", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v29", page_icon="🛸", layout="wide")
 
-# --- 1. CSS STYLING (Sci-Fi HUD + Mobile Logic v28) ---
+# --- 1. CSS STYLING (Sci-Fi HUD + Compact Popup v29) ---
 st.markdown("""
 <style>
 .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
 header, footer { visibility: hidden; }
 .stApp { background-color: #050505; color: #e0f7fa; font-family: 'Courier New', Courier, monospace; }
 
-/* Version Indicator - ต้องเห็นคำนี้ที่มุมขวาบน */
-.v-tag { position: fixed; top: 10px; right: 10px; font-size: 0.7rem; color: #FFD700; z-index: 9999; font-weight: bold; background: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 3px; }
+/* Version Indicator */
+.v-tag { position: fixed; top: 10px; right: 10px; font-size: 0.6rem; color: #FFD700; z-index: 9999; font-weight: bold; background: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 3px; }
 
 /* HUD Overview */
 .hud-box {
@@ -68,23 +68,29 @@ header, footer { visibility: hidden; }
 .vu-tick.active-buy { background: #00e676; box-shadow: 0 0 5px #00e676; }
 .vu-tick.active-gold { background: #FFD700; box-shadow: 0 0 5px #FFD700; }
 
-/* 🔥 POPUP CONTAINER v28 🔥 */
+/* 🔥 POPUP CONTAINER v29 🔥 */
 .price-scale { 
     flex-grow: 1; height: 22px; 
     background: rgba(255,255,255,0.03); 
     margin-right: 15px; position: relative; border-bottom: 1px solid #333; 
     cursor: pointer; overflow: visible; 
 }
-.popup-v28 {
+.popup-v29 {
     display: none; position: absolute; 
     bottom: 35px; left: 50%; transform: translateX(-50%);
-    background: #000; padding: 8px 14px; border-radius: 4px;
+    background: #000; padding: 6px 10px; border-radius: 4px;
     border: 1px solid #444; white-space: nowrap;
     z-index: 9999; box-shadow: 0 10px 25px rgba(0,0,0,0.8);
-    font-family: monospace; align-items: center; gap: 12px;
+    font-family: monospace; align-items: center; justify-content: space-between;
+    font-size: 0.65rem; gap: 15px; /* เพิ่ม gap ระหว่าง 3 กลุ่มหลัก */
 }
-.price-scale:hover .popup-v28, .price-scale:active .popup-v28 {
+.price-scale:hover .popup-v29, .price-scale:active .popup-v29 {
     display: flex !important;
+}
+
+/* กลุ่มกลางที่รวม MKT และ BE */
+.pp-center-group {
+    display: flex; align-items: center; gap: 4px;
 }
 
 .tick-unit { position: absolute; pointer-events: none; }
@@ -95,7 +101,7 @@ header, footer { visibility: hidden; }
 
 .section-title { font-size: 0.9rem; font-weight: 700; color: #E0E0E0; border-left: 4px solid #29B6F6; padding-left: 10px; margin-top: 25px; margin-bottom: 15px; text-transform: uppercase; }
 </style>
-<div class="v-tag">v28.GOLD.ACTIVE</div>
+<div class="v-tag">v29.GOLD.COMPACT</div>
 """, unsafe_allow_html=True)
 
 def load_data():
@@ -125,7 +131,6 @@ else:
                 bal, eq, prof = float(latest.get('Balance', 0.0)), float(latest.get('Equity', 0.0)), float(latest.get('TotalProfit', 0.0))
                 lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
                 
-                # Direction logic
                 if 'prev_price' not in st.session_state: st.session_state.prev_price = price
                 prev_p = st.session_state.prev_price
                 if price > prev_p: p_arrow = '<span style="color:#00e676; font-size:1.8rem; margin-left:10px;">▲</span>'
@@ -185,12 +190,22 @@ else:
                         def get_pct(v): return ((v - s_min) / s_range) * 100
                         order_ticks = "".join([f'<div class="tick-unit {"tick-main" if op in [m["MinP"], m["MaxP"]] else "tick-order"}" style="left:{get_pct(op)}%"></div>' for op in m_orders['Open Price']])
                         
-                        # --- DYNAMIC POPUP v28 LOGIC ---
+                        # --- DYNAMIC POPUP v29 LOGIC ---
                         min_v, max_v, be_v, mkt_v = f"{m['MinP']:,.2f}", f"{m['MaxP']:,.2f}", f"{m['BEP']:,.2f}", f"{price:,.2f}"
+                        
+                        # สร้างชุดข้อมูลกลาง (Current Price + Arrow + BE)
                         if price <= m['BEP']:
-                            popup_content = f'<span style="color:#fff;">| {min_v}</span> <span style="color:#00e5ff; font-weight:bold; margin-left:10px;">{mkt_v}</span> <span style="color:#fff;">→</span> <span style="color:#FFD700; border:1px solid #FFD700; padding:1px 5px; font-weight:bold;">{be_v}</span> <span style="color:#fff; margin-left:10px;">{max_v} |</span>'
+                            mid_group = f'<span style="color:#00e5ff; font-weight:bold;">{mkt_v}</span> <span style="color:#fff;">→</span> <span style="color:#FFD700; border:1px solid #FFD700; padding:0px 4px; font-weight:bold;">{be_v}</span>'
                         else:
-                            popup_content = f'<span style="color:#fff;">| {min_v}</span> <span style="color:#FFD700; border:1px solid #FFD700; padding:1px 5px; font-weight:bold; margin-right:10px;">{be_v}</span> <span style="color:#fff;">←</span> <span style="color:#00e5ff; font-weight:bold; margin-right:10px;">{mkt_v}</span> <span style="color:#fff;">{max_v} |</span>'
+                            mid_group = f'<span style="color:#FFD700; border:1px solid #FFD700; padding:0px 4px; font-weight:bold;">{be_v}</span> <span style="color:#fff;">←</span> <span style="color:#00e5ff; font-weight:bold;">{mkt_v}</span>'
+
+                        popup_content = f"""
+                        <div class="popup-v29">
+                            <span style="color:#fff;">| {min_v}</span>
+                            <div class="pp-center-group">{mid_group}</div>
+                            <span style="color:#fff;">{max_v} |</span>
+                        </div>
+                        """
 
                         dist_v = f"✅ {abs(m['BEP']-price):,.2f}" if (m['BEP']-price if m['Type']=='Buy' else price-m['BEP']) <= 0 else f"⚠️ {abs(m['BEP']-price):,.2f}"
                         d_icon = '»«' if abs(m['BEP']-price) < abs(m['BEP']-prev_p) else ('«»' if abs(m['BEP']-price) > abs(m['BEP']-prev_p) else '↔')
@@ -210,7 +225,7 @@ else:
 </div>
 <div class="scale-row">
 <div class="price-scale">
-<div class="popup-v28">{popup_content}</div>
+{popup_content}
 {order_ticks}
 <div class="tick-unit tick-be" style="left:{get_pct(m['BEP'])}%"></div>
 <div class="tick-unit tick-current" style="left:{get_pct(price)}%"></div>
