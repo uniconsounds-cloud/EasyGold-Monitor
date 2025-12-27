@@ -4,6 +4,7 @@ import json
 import time
 import plotly.graph_objects as go
 import math
+import textwrap
 
 # ---------------------------------------------------------
 # 🛠 SHEET ID ฝังให้เรียบร้อยแล้วครับ 🛠
@@ -12,44 +13,29 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v29", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v30", page_icon="🛸", layout="wide")
 
-# --- 1. CSS STYLING (Sci-Fi HUD + Compact Popup v29) ---
+# --- 1. CSS STYLING (Sci-Fi HUD + Fixed Rendering v30) ---
 st.markdown("""
 <style>
 .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
 header, footer { visibility: hidden; }
 .stApp { background-color: #050505; color: #e0f7fa; font-family: 'Courier New', Courier, monospace; }
-
-/* Version Indicator */
 .v-tag { position: fixed; top: 10px; right: 10px; font-size: 0.6rem; color: #FFD700; z-index: 9999; font-weight: bold; background: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 3px; }
 
-/* HUD Overview */
-.hud-box {
-    background: #0a0f14; border: 1px solid #333; border-radius: 4px;
-    padding: 15px; margin-bottom: 15px; border-left: 4px solid #00e5ff;
-}
+.hud-box { background: #0a0f14; border: 1px solid #333; border-radius: 4px; padding: 15px; margin-bottom: 15px; border-left: 4px solid #00e5ff; }
 .hud-label { font-size: 0.75rem; color: #546e7a; letter-spacing: 2px; font-weight: bold; text-transform: uppercase; }
 .hud-value-blue { font-size: 2.2rem; color: #00e5ff; font-weight: bold; text-shadow: 0 0 10px rgba(0, 229, 255, 0.6); line-height: 1; }
 .hud-value-sub { font-size: 1.2rem; color: #aaa; font-weight: bold; }
 
 .main-bar-container { width: 100%; height: 18px; background: #1c2530; margin: 10px 0; position: relative; border-radius: 2px; overflow: hidden; }
-.main-bar-fill-blue { height: 100%; background: #00e5ff; box-shadow: 0 0 10px #00e5ff; position: absolute; z-index: 3; transition: width 0.5s; }
-.main-bar-fill-gold { height: 100%; background: #FFD600; box-shadow: 0 0 8px #FFD600; position: absolute; z-index: 2; transition: width 0.5s; }
+.main-bar-fill-blue { height: 100%; background: #00e5ff; box-shadow: 0 0 10px #00e5ff; position: absolute; z-index: 3; }
+.main-bar-fill-gold { height: 100%; background: #FFD600; box-shadow: 0 0 8px #FFD600; position: absolute; z-index: 2; }
 .main-bar-marker { position: absolute; width: 2px; height: 24px; top: -3px; background: #fff; z-index: 5; box-shadow: 0 0 8px #fff; }
 
-/* Module Cards */
-.module-card {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid #222; border-radius: 4px;
-    padding: 12px; margin-bottom: 15px;
-    overflow: visible !important;
-}
+.module-card { background: rgba(255, 255, 255, 0.02); border: 1px solid #222; border-radius: 4px; padding: 12px; margin-bottom: 15px; overflow: visible !important; }
 .id-row { display: flex; gap: 5px; margin-bottom: 12px; align-items: center; }
-.square-box {
-    padding: 2px 8px; border: 1px solid #444; border-radius: 2px;
-    font-weight: bold; font-size: 0.9rem; font-family: monospace;
-}
+.square-box { padding: 2px 8px; border: 1px solid #444; border-radius: 2px; font-weight: bold; font-size: 0.9rem; font-family: monospace; }
 .box-magic { background: rgba(0, 229, 255, 0.1); color: #00e5ff; border-color: #00e5ff; }
 .box-buy { background: rgba(0, 230, 118, 0.1); color: #00e676; border-color: #00e676; }
 .box-gold { background: rgba(255, 215, 0, 0.1); color: #FFD700; border-color: #FFD700; }
@@ -68,40 +54,22 @@ header, footer { visibility: hidden; }
 .vu-tick.active-buy { background: #00e676; box-shadow: 0 0 5px #00e676; }
 .vu-tick.active-gold { background: #FFD700; box-shadow: 0 0 5px #FFD700; }
 
-/* 🔥 POPUP CONTAINER v29 🔥 */
-.price-scale { 
-    flex-grow: 1; height: 22px; 
-    background: rgba(255,255,255,0.03); 
-    margin-right: 15px; position: relative; border-bottom: 1px solid #333; 
-    cursor: pointer; overflow: visible; 
-}
-.popup-v29 {
-    display: none; position: absolute; 
-    bottom: 35px; left: 50%; transform: translateX(-50%);
-    background: #000; padding: 6px 10px; border-radius: 4px;
-    border: 1px solid #444; white-space: nowrap;
-    z-index: 9999; box-shadow: 0 10px 25px rgba(0,0,0,0.8);
-    font-family: monospace; align-items: center; justify-content: space-between;
-    font-size: 0.65rem; gap: 15px; /* เพิ่ม gap ระหว่าง 3 กลุ่มหลัก */
-}
-.price-scale:hover .popup-v29, .price-scale:active .popup-v29 {
-    display: flex !important;
-}
+.scale-row { display: flex; align-items: center; justify-content: space-between; }
+.price-scale { flex-grow: 1; height: 22px; background: rgba(255,255,255,0.03); margin-right: 15px; position: relative; border-bottom: 1px solid #333; cursor: pointer; overflow: visible; }
 
-/* กลุ่มกลางที่รวม MKT และ BE */
-.pp-center-group {
-    display: flex; align-items: center; gap: 4px;
-}
+/* FIXED POPUP v30 */
+.popup-v30 { display: none; position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%); background: #000; padding: 6px 12px; border-radius: 4px; border: 1px solid #444; white-space: nowrap; z-index: 9999; font-family: monospace; align-items: center; font-size: 0.65rem; gap: 10px; }
+.price-scale:hover .popup-v30, .price-scale:active .popup-v30 { display: flex !important; }
+.pp-center { display: flex; align-items: center; gap: 4px; margin: 0 5px; }
 
 .tick-unit { position: absolute; pointer-events: none; }
 .tick-order { width: 1px; height: 12px; background: #555; bottom: 0; }
 .tick-main { width: 2px; height: 18px; background: #fff; box-shadow: 0 0 5px #fff; bottom: 0; }
 .tick-be { width: 3px; height: 22px; background: #FFD600; box-shadow: 0 0 8px #FFD600; bottom: -2px; z-index: 5; }
 .tick-current { width: 1px; height: 28px; border-left: 1px dashed #00e5ff; top: -5px; z-index: 6; }
-
 .section-title { font-size: 0.9rem; font-weight: 700; color: #E0E0E0; border-left: 4px solid #29B6F6; padding-left: 10px; margin-top: 25px; margin-bottom: 15px; text-transform: uppercase; }
 </style>
-<div class="v-tag">v29.GOLD.COMPACT</div>
+<div class="v-tag">v30.GOLD.FIXED</div>
 """, unsafe_allow_html=True)
 
 def load_data():
@@ -140,9 +108,9 @@ else:
 
                 max_scale = max(bal, eq) * 1.2
                 eq_pct, bal_pct = (eq/max_scale)*100, (bal/max_scale)*100
-                gold_bar_html = f'<div class="main-bar-fill-gold" style="left: {eq_pct}%; width: {bal_pct-eq_pct}%;"></div>' if eq < bal else ""
+                gold_bar_html = f'<div class="main-bar-fill-gold" style="left:{eq_pct}%; width:{bal_pct-eq_pct}%;"></div>' if eq < bal else ""
 
-                h_html = f"""
+                h_html = textwrap.dedent(f"""
 <div class="hud-box">
 <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
 <div><div class="hud-label">MARKET PRICE</div><div style="display:flex; align-items:center;"><div class="hud-value-blue">{price:,.2f}</div>{p_arrow}</div></div>
@@ -157,7 +125,7 @@ else:
 <div style="text-align:left;"><div class="hud-label">EQUITY / P&L</div><div style="display:flex; align-items:baseline; gap:8px; margin-top:2px;"><span style="color:#00e5ff; font-size: 1.2rem; font-weight: bold;">{eq:,.2f}</span><span style="color:{'#00e676' if prof >= 0 else '#FFD700'}; font-size: 1.2rem; font-weight: bold;">({prof:+,.2f})</span></div></div>
 <div style="text-align:right;"><div class="hud-label">TOTAL LOTS</div><div style="color:#fff; font-size: 1.2rem; font-weight: bold; margin-top:2px;">{lots:,.2f}</div></div>
 </div>
-</div>"""
+</div>""").strip()
                 st.markdown(h_html, unsafe_allow_html=True)
 
                 st.markdown('<div class="hud-label" style="margin-top:10px; margin-bottom:15px;">ACTIVE MODULE ANALYSIS</div>', unsafe_allow_html=True)
@@ -190,28 +158,25 @@ else:
                         def get_pct(v): return ((v - s_min) / s_range) * 100
                         order_ticks = "".join([f'<div class="tick-unit {"tick-main" if op in [m["MinP"], m["MaxP"]] else "tick-order"}" style="left:{get_pct(op)}%"></div>' for op in m_orders['Open Price']])
                         
-                        # --- DYNAMIC POPUP v29 LOGIC ---
+                        # --- POPUP CONTENT v30 ---
                         min_v, max_v, be_v, mkt_v = f"{m['MinP']:,.2f}", f"{m['MaxP']:,.2f}", f"{m['BEP']:,.2f}", f"{price:,.2f}"
-                        
-                        # สร้างชุดข้อมูลกลาง (Current Price + Arrow + BE)
                         if price <= m['BEP']:
-                            mid_group = f'<span style="color:#00e5ff; font-weight:bold;">{mkt_v}</span> <span style="color:#fff;">→</span> <span style="color:#FFD700; border:1px solid #FFD700; padding:0px 4px; font-weight:bold;">{be_v}</span>'
+                            mid_html = f'<span style="color:#00e5ff; font-weight:bold;">{mkt_v}</span> <span style="color:#fff;">→</span> <span style="color:#FFD700; border:1px solid #FFD700; padding:0 4px; font-weight:bold;">{be_v}</span>'
                         else:
-                            mid_group = f'<span style="color:#FFD700; border:1px solid #FFD700; padding:0px 4px; font-weight:bold;">{be_v}</span> <span style="color:#fff;">←</span> <span style="color:#00e5ff; font-weight:bold;">{mkt_v}</span>'
+                            mid_html = f'<span style="color:#FFD700; border:1px solid #FFD700; padding:0 4px; font-weight:bold;">{be_v}</span> <span style="color:#fff;">←</span> <span style="color:#00e5ff; font-weight:bold;">{mkt_v}</span>'
 
-                        popup_content = f"""
-                        <div class="popup-v29">
-                            <span style="color:#fff;">| {min_v}</span>
-                            <div class="pp-center-group">{mid_group}</div>
-                            <span style="color:#fff;">{max_v} |</span>
-                        </div>
-                        """
+                        popup_box = textwrap.dedent(f"""
+                        <div class="popup-v30">
+                        <span style="color:#fff;">| {min_v}</span>
+                        <div class="pp-center">{mid_html}</div>
+                        <span style="color:#fff;">{max_v} |</span>
+                        </div>""").strip()
 
                         dist_v = f"✅ {abs(m['BEP']-price):,.2f}" if (m['BEP']-price if m['Type']=='Buy' else price-m['BEP']) <= 0 else f"⚠️ {abs(m['BEP']-price):,.2f}"
                         d_icon = '»«' if abs(m['BEP']-price) < abs(m['BEP']-prev_p) else ('«»' if abs(m['BEP']-price) > abs(m['BEP']-prev_p) else '↔')
                         d_col = "#00e676" if d_icon == '»«' else ("#FFD700" if d_icon == '«»' else "#546e7a")
 
-                        m_html = f"""
+                        m_html = textwrap.dedent(f"""
 <div class="module-card">
 <div class="id-row">
 <div class="square-box box-magic">{m['Magic']}</div><div class="square-box {"box-buy" if m['Type'] == 'Buy' else "box-gold"}">{m['Type']}</div><div class="square-box box-lots">{m['Lots']:,.2f} L</div><span class="text-first-lot">({first_lot:,.2f})</span>
@@ -225,14 +190,14 @@ else:
 </div>
 <div class="scale-row">
 <div class="price-scale">
-{popup_content}
+{popup_box}
 {order_ticks}
 <div class="tick-unit tick-be" style="left:{get_pct(m['BEP'])}%"></div>
 <div class="tick-unit tick-current" style="left:{get_pct(price)}%"></div>
 </div>
 <div class="data-text" style="color:{d_col}"><span style="font-size:1.1rem; vertical-align:middle;">{d_icon}</span> <span style="color:{'#00e676' if (m['BEP']-price if m['Type']=='Buy' else price-m['BEP']) <= 0 else '#FFD700'}">{dist_v}</span></div>
 </div>
-</div>"""
+</div>""").strip()
                         st.markdown(m_html, unsafe_allow_html=True)
 
                     st.markdown('<div class="section-title">PORTFOLIO STRUCTURE MAP</div>', unsafe_allow_html=True)
