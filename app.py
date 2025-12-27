@@ -12,9 +12,9 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v26", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v27", page_icon="🛸", layout="wide")
 
-# --- 1. CSS STYLING (Sci-Fi HUD + Mobile Touch Tooltips) ---
+# --- 1. CSS STYLING (Sci-Fi HUD + Advanced Dynamic Tooltips) ---
 st.markdown("""
 <style>
 .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
@@ -35,7 +35,6 @@ header, footer { visibility: hidden; }
 .main-bar-fill-gold { height: 100%; background: #FFD600; box-shadow: 0 0 8px #FFD600; position: absolute; z-index: 2; transition: width 0.5s; }
 .main-bar-marker { position: absolute; width: 2px; height: 24px; top: -3px; background: #fff; z-index: 5; box-shadow: 0 0 8px #fff; }
 
-/* Module Cards */
 .module-card {
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid #222; border-radius: 4px;
@@ -63,9 +62,8 @@ header, footer { visibility: hidden; }
 .vu-tick { width: 3px; height: 18px; background: #1a1a1a; border-radius: 1px; }
 .vu-tick.active-buy { background: #00e676; box-shadow: 0 0 5px #00e676; }
 .vu-tick.active-gold { background: #FFD700; box-shadow: 0 0 5px #FFD700; }
-.vu-overflow { color: #FFD700; font-size: 1.1rem; margin-left: 5px; font-weight: bold; }
 
-/* แถบราคา (แถว 3) พร้อมระบบ Popup สำหรับมือถือ */
+/* บาร์ราคาแถวที่ 3 (Touch/Hover Optimized) */
 .scale-row { display: flex; align-items: center; justify-content: space-between; }
 .price-scale { 
     flex-grow: 1; height: 18px; background: rgba(255,255,255,0.03); 
@@ -73,22 +71,27 @@ header, footer { visibility: hidden; }
     cursor: pointer; overflow: visible; 
 }
 
-/* สร้างกล่อง Popup เมื่อมีการแตะ (Active) หรือวางเมาส์ (Hover) */
-.price-scale::after {
-    content: attr(data-info);
-    position: absolute;
-    bottom: 30px; left: 50%;
-    transform: translateX(-50%);
-    background: #000; color: #00e5ff;
-    padding: 5px 10px; font-size: 0.75rem; font-weight: bold;
-    border: 1px solid #00e5ff; border-radius: 3px;
-    white-space: nowrap; z-index: 1000;
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.2s;
-    box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
+/* Custom Popup Design */
+.popup-container {
+    display: none; position: absolute; 
+    bottom: 35px; left: 50%; transform: translateX(-50%);
+    background: rgba(0, 5, 10, 0.95);
+    padding: 6px 12px; border-radius: 4px;
+    border: 1px solid #333; white-space: nowrap;
+    z-index: 2000; box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+    font-family: monospace; align-items: center; gap: 10px;
 }
-.price-scale:hover::after, .price-scale:active::after {
-    opacity: 1;
+.price-scale:hover .popup-container, .price-scale:active .popup-container {
+    display: flex;
+}
+
+/* Popup Elements */
+.pp-white { color: #ffffff; }
+.pp-blue { color: #00e5ff; font-weight: bold; }
+.pp-gold-box { 
+    color: #FFD700; font-weight: bold; 
+    border: 1px solid #FFD700; padding: 1px 6px; 
+    background: rgba(255, 215, 0, 0.05);
 }
 
 .tick-unit { position: absolute; pointer-events: none; }
@@ -97,23 +100,16 @@ header, footer { visibility: hidden; }
 .tick-be { width: 3px; height: 22px; background: #FFD600; box-shadow: 0 0 8px #FFD600; bottom: -2px; z-index: 5; }
 .tick-current { width: 1px; height: 28px; border-left: 1px dashed #00e5ff; top: -5px; z-index: 6; }
 
-.data-text { font-size: 0.9rem; font-weight: bold; white-space: nowrap; font-family: monospace; line-height: 18px; }
 .section-title { font-size: 0.9rem; font-weight: 700; color: #E0E0E0; border-left: 4px solid #29B6F6; padding-left: 10px; margin-top: 25px; margin-bottom: 15px; text-transform: uppercase; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. HELPER FUNCTIONS ---
 def load_data():
     try:
         df = pd.read_csv(SHEET_URL)
         df.columns = [c.strip() for c in df.columns]
-        if 'CurrentPrice' not in df.columns: df['CurrentPrice'] = 0.0 
         return df
     except: return None
-
-# =========================================================
-# Main Loop
-# =========================================================
 
 df = load_data()
 
@@ -131,26 +127,21 @@ else:
             target_df = df[df['AccountID'] == selected_account]
             if not target_df.empty:
                 latest = target_df.iloc[-1]
-                
-                # Core Data
                 price = float(latest.get('CurrentPrice', 0.0))
                 bal, eq, prof = float(latest.get('Balance', 0.0)), float(latest.get('Equity', 0.0)), float(latest.get('TotalProfit', 0.0))
                 lots = float(latest.get('BuyLots', 0.0)) + float(latest.get('SellLots', 0.0))
                 
-                # PRICE DIRECTION TRACKER
+                # Direction logic
                 if 'prev_price' not in st.session_state: st.session_state.prev_price = price
                 prev_p = st.session_state.prev_price
-                if price > prev_p:
-                    p_arrow = '<span style="color:#00e676; font-size:1.8rem; margin-left:10px; text-shadow:0 0 8px #00e676;">▲</span>'
-                elif price < prev_p:
-                    p_arrow = '<span style="color:#FFD700; font-size:1.8rem; margin-left:10px; text-shadow:0 0 8px #FFD700;">▼</span>'
-                else:
-                    p_arrow = '<span style="color:#546e7a; font-size:1.8rem; margin-left:10px;">—</span>'
+                if price > prev_p: p_arrow = '<span style="color:#00e676; font-size:1.8rem; margin-left:10px;">▲</span>'
+                elif price < prev_p: p_arrow = '<span style="color:#FFD700; font-size:1.8rem; margin-left:10px;">▼</span>'
+                else: p_arrow = '<span style="color:#546e7a; font-size:1.8rem; margin-left:10px;">—</span>'
+                st.session_state.prev_price = price
 
                 max_scale = max(bal, eq) * 1.2
                 eq_pct, bal_pct = (eq/max_scale)*100, (bal/max_scale)*100
                 gold_bar_html = f'<div class="main-bar-fill-gold" style="left: {eq_pct}%; width: {bal_pct-eq_pct}%;"></div>' if eq < bal else ""
-                prof_color = "#00e676" if prof >= 0 else "#FFD700"
 
                 h_html = f"""
 <div class="hud-box">
@@ -164,17 +155,8 @@ else:
 {gold_bar_html}
 </div>
 <div style="display:flex; justify-content:space-between; margin-top:10px;">
-<div style="text-align:left;">
-<div class="hud-label">EQUITY / P&L</div>
-<div style="display:flex; align-items:baseline; gap:8px; margin-top:2px;">
-<span style="color:#00e5ff; font-size: 1.2rem; font-weight: bold;">{eq:,.2f}</span>
-<span style="color:{prof_color}; font-size: 1.2rem; font-weight: bold;">({prof:+,.2f})</span>
-</div>
-</div>
-<div style="text-align:right;">
-<div class="hud-label">TOTAL LOTS</div>
-<div style="color:#fff; font-size: 1.2rem; font-weight: bold; margin-top:2px;">{lots:,.2f}</div>
-</div>
+<div style="text-align:left;"><div class="hud-label">EQUITY / P&L</div><div style="display:flex; align-items:baseline; gap:8px; margin-top:2px;"><span style="color:#00e5ff; font-size: 1.2rem; font-weight: bold;">{eq:,.2f}</span><span style="color:{'#00e676' if prof >= 0 else '#FFD700'}; font-size: 1.2rem; font-weight: bold;">({prof:+,.2f})</span></div></div>
+<div style="text-align:right;"><div class="hud-label">TOTAL LOTS</div><div style="color:#fff; font-size: 1.2rem; font-weight: bold; margin-top:2px;">{lots:,.2f}</div></div>
 </div>
 </div>"""
                 st.markdown(h_html, unsafe_allow_html=True)
@@ -187,14 +169,10 @@ else:
                 if orders:
                     orders_df = pd.DataFrame(orders)
                     orders_df.rename(columns={'s': 'Symbol', 't': 'Type', 'v': 'Volume', 'p': 'Open Price', 'pl': 'Profit', 'm': 'Magic'}, inplace=True)
-                    
                     orders_df['WVal'] = orders_df['Volume'] * orders_df['Open Price']
-                    magic_stats = orders_df.groupby('Magic').agg({
-                        'Type': 'first', 'Magic': 'count', 'Volume': 'sum', 'Profit': 'sum', 'Open Price': ['min', 'max']
-                    })
+                    magic_stats = orders_df.groupby('Magic').agg({'Type': 'first', 'Magic': 'count', 'Volume': 'sum', 'Profit': 'sum', 'Open Price': ['min', 'max']})
                     magic_stats.columns = ['Type', 'Count', 'Lots', 'Profit', 'MinP', 'MaxP']
                     magic_stats = magic_stats.reset_index()
-                    
                     be_map = orders_df.groupby('Magic')['WVal'].sum() / orders_df.groupby('Magic')['Volume'].sum()
                     magic_stats['BEP'] = magic_stats['Magic'].map(be_map)
                     
@@ -204,96 +182,86 @@ else:
                     for _, m in magic_stats.iterrows():
                         m_orders = orders_df[orders_df['Magic'] == m['Magic']]
                         first_lot = m_orders.iloc[0]['Volume']
-                        
                         p_pct = (math.sqrt(abs(m['Profit'])) / max_sqrt_prof) * 50
-                        if abs(m['Profit']) > 0 and p_pct < 2: p_pct = 2 
                         p_col = "#00e676" if m['Profit'] >= 0 else "#FFD700"
                         p_style = f"left:50%; width:{p_pct}%; background:{p_col};" if m['Profit'] >= 0 else f"right:50%; width:{p_pct}%; background:{p_col};"
-                        
-                        num_ticks = min(m['Count'], 50)
                         active_cls = "active-buy" if m['Type'] == "Buy" else "active-gold"
-                        vu_ticks_html = "".join([f'<div class="vu-tick {active_cls}"></div>' for _ in range(num_ticks)])
-                        vu_ticks_html += "".join(['<div class="vu-tick"></div>' for _ in range(max(0, 50 - num_ticks))])
-                        overflow_html = '<span class="vu-overflow">▶</span>' if m['Count'] > 50 else ''
+                        vu_ticks = "".join([f'<div class="vu-tick {active_cls}"></div>' for _ in range(min(m['Count'], 50))])
+                        vu_ticks += "".join(['<div class="vu-tick"></div>' for _ in range(max(0, 50 - m['Count']))])
                         
-                        curr_abs_d = abs(m['BEP'] - price)
-                        prev_abs_d = abs(m['BEP'] - prev_p)
-                        if curr_abs_d < prev_abs_d: d_icon, d_icon_col = '»«', "#00e676"
-                        elif curr_abs_d > prev_abs_d: d_icon, d_icon_col = '«»', "#FFD700"
-                        else: d_icon, d_icon_col = '↔', "#546e7a"
-
                         all_vals = [m['MinP'], m['MaxP'], m['BEP'], price]
                         s_min, s_max = min(all_vals), max(all_vals)
                         s_range = (s_max - s_min) or 1
                         def get_pct(v): return ((v - s_min) / s_range) * 100
+                        order_ticks = "".join([f'<div class="tick-unit {"tick-main" if op in [m["MinP"], m["MaxP"]] else "tick-order"}" style="left:{get_pct(op)}%"></div>' for op in m_orders['Open Price']])
                         
-                        order_ticks = ""
-                        for op in m_orders['Open Price']:
-                            is_main_cls = "tick-main" if op in [m["MinP"], m["MaxP"]] else "tick-order"
-                            order_ticks += f'<div class="tick-unit {is_main_cls}" style="left:{get_pct(op)}%"></div>'
+                        # --- DYNAMIC POPUP HTML ---
+                        min_txt = f"{m['MinP']:,.2f}"
+                        max_txt = f"{m['MaxP']:,.2f}"
+                        be_txt = f"{m['BEP']:,.2f}"
+                        mkt_txt = f"{price:,.2f}"
                         
-                        raw_dist = m['BEP'] - price if m['Type'] == 'Buy' else price - m['BEP']
-                        dist_str = f"✅ {abs(raw_dist):,.2f}" if raw_dist <= 0 else f"⚠️ {abs(raw_dist):,.2f}"
+                        if price <= m['BEP']:
+                            popup_html = f"""
+<div class="popup-container">
+<span class="pp-white">| {min_txt}</span>
+<span style="width:20px;"></span>
+<span class="pp-blue">{mkt_txt}</span>
+<span class="pp-white">→</span>
+<span class="pp-gold-box">{be_txt}</span>
+<span style="width:20px;"></span>
+<span class="pp-white">{max_txt} |</span>
+</div>"""
+                        else:
+                            popup_html = f"""
+<div class="popup-container">
+<span class="pp-white">| {min_txt}</span>
+<span style="width:20px;"></span>
+<span class="pp-gold-box">{be_txt}</span>
+<span class="pp-white">←</span>
+<span class="pp-blue">{mkt_txt}</span>
+<span style="width:20px;"></span>
+<span class="pp-white">{max_txt} |</span>
+</div>"""
 
-                        # ข้อมูลสรุปที่จะขึ้นเมื่อแตะบาร์ (Mobile Optimized)
-                        bar_data = f"MIN:{m['MinP']:,.2f} MAX:{m['MaxP']:,.2f} BE:{m['BEP']:,.2f}"
+                        dist_val = f"✅ {abs(m['BEP']-price):,.2f}" if (m['BEP']-price if m['Type']=='Buy' else price-m['BEP']) <= 0 else f"⚠️ {abs(m['BEP']-price):,.2f}"
+                        d_icon = '»«' if abs(m['BEP']-price) < abs(m['BEP']-prev_p) else ('«»' if abs(m['BEP']-price) > abs(m['BEP']-prev_p) else '↔')
+                        d_col = "#00e676" if d_icon == '»«' else ("#FFD700" if d_icon == '«»' else "#546e7a")
 
                         m_html = f"""
 <div class="module-card">
 <div class="id-row">
-<div class="square-box box-magic">{m['Magic']}</div>
-<div class="square-box {"box-buy" if m['Type'] == 'Buy' else "box-gold"}">{m['Type']}</div>
-<div class="square-box box-lots">{m['Lots']:,.2f} L</div>
-<span class="text-first-lot">({first_lot:,.2f})</span>
+<div class="square-box box-magic">{m['Magic']}</div><div class="square-box {"box-buy" if m['Type'] == 'Buy' else "box-gold"}">{m['Type']}</div><div class="square-box box-lots">{m['Lots']:,.2f} L</div><span class="text-first-lot">({first_lot:,.2f})</span>
 </div>
 <div class="p-row">
 <div class="div-track"><div class="div-center"></div><div class="div-fill" style="{p_style} box-shadow: 0 0 5px {p_col}"></div></div>
 <div class="data-text" style="color:{p_col}">{m['Profit']:+,.2f}</div>
 </div>
 <div class="vu-row">
-<div class="vu-meter">{vu_ticks_html}{overflow_html}</div>
-<div class="square-box box-count">{m['Count']}</div>
+<div class="vu-meter">{vu_ticks}</div><div class="square-box box-count">{m['Count']}</div>
 </div>
 <div class="scale-row">
-<div class="price-scale" data-info="{bar_data}">
+<div class="price-scale">
+{popup_html}
 {order_ticks}
 <div class="tick-unit tick-be" style="left:{get_pct(m['BEP'])}%"></div>
 <div class="tick-unit tick-current" style="left:{get_pct(price)}%"></div>
 </div>
-<div class="data-text" style="color:{d_icon_col}"><span style="font-size:1.1rem; vertical-align:middle;">{d_icon}</span> <span style="color:{'#00e676' if raw_dist <= 0 else '#FFD700'}">{dist_str}</span></div>
+<div class="data-text" style="color:{d_col}"><span style="font-size:1.1rem; vertical-align:middle;">{d_icon}</span> <span style="color:{'#00e676' if (m['BEP']-price if m['Type']=='Buy' else price-m['BEP']) <= 0 else '#FFD700'}">{dist_val}</span></div>
 </div>
 </div>"""
                         st.markdown(m_html, unsafe_allow_html=True)
 
-                    st.session_state.prev_price = price
-
-                    # --- PART 3: STRUCTURE GRAPH (Protected) ---
                     st.markdown('<div class="section-title">PORTFOLIO STRUCTURE MAP</div>', unsafe_allow_html=True)
                     fig_p = go.Figure()
-                    fig_p.add_hline(y=price, line_dash="dash", line_color="#29B6F6", line_width=1, annotation_text="Market")
-                    fig_p.add_trace(go.Scatter(x=orders_df['Magic'].astype(str), y=orders_df['Open Price'], mode='markers', marker=dict(symbol='line-ew', size=25, line=dict(width=1, color="rgba(255, 255, 255, 0.25)")), hoverinfo='skip'))
-                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#FFD700")), name="Max", hovertemplate="Max: %{y:,.2f}<extra></extra>"))
-                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MinP'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")), name="Min", hovertemplate="Min: %{y:,.2f}<extra></extra>"))
-                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['BEP'], mode='markers', marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), name="BE", hovertemplate="BE: %{y:,.2f}<extra></extra>"))
-                    
-                    labels = ["{}<br><span style='color:{}'>{}</span>:{}".format(m_id, ("#00C853" if t=="Buy" else "#FFD700"), t, c) for m_id, t, c in zip(magic_stats['Magic'], magic_stats['Type'], magic_stats['Count'])]
-                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='text', text=labels, textposition="top center", textfont=dict(color='#E0E0E0', size=11), hoverinfo='skip'))
-                    fig_p.update_layout(xaxis=dict(showticklabels=False, type='category', gridcolor='#333'), yaxis=dict(gridcolor='#222', tickfont=dict(color='gray', size=10)), margin=dict(l=40, r=20, t=40, b=20), height=350, showlegend=False, paper_bgcolor='#050505', plot_bgcolor='#050505')
+                    fig_p.add_hline(y=price, line_dash="dash", line_color="#29B6F6", line_width=1)
+                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MaxP'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#FFD700")), hovertemplate="Max: %{y:,.2f}<extra></extra>"))
+                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['MinP'], mode='markers', marker=dict(symbol='line-ew', size=30, line=dict(width=3, color="#00C853")), hovertemplate="Min: %{y:,.2f}<extra></extra>"))
+                    fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['BEP'], mode='markers', marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), hovertemplate="BE: %{y:,.2f}<extra></extra>"))
+                    fig_p.update_layout(xaxis=dict(showticklabels=False, type='category', gridcolor='#333'), yaxis=dict(gridcolor='#222'), margin=dict(l=40, r=20, t=40, b=20), height=350, showlegend=False, paper_bgcolor='#050505', plot_bgcolor='#050505')
                     st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
 
-                    # --- PART 4: SUMMARY TABLE ---
-                    st.markdown('<div class="hud-label" style="margin-top:20px; margin-bottom:15px;">MISSION DATA LOG SUMMARY</div>', unsafe_allow_html=True)
-                    summary_df = magic_stats[['Magic', 'Type', 'Count', 'Lots', 'BEP', 'Profit']].copy()
-                    def get_t_dist(row):
-                        d = row['BEP'] - price if row['Type'] == 'Buy' else price - row['BEP']
-                        return f"✅ {abs(d):,.2f}" if d <= 0 else f"⚠️ {abs(d):,.2f}"
-                    summary_df['DIST'] = summary_df.apply(get_t_dist, axis=1)
-                    summary_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'BE_PRICE', 'PROFIT', 'DIST']
-                    for c in ['LOTS', 'BE_PRICE', 'PROFIT']: summary_df[c] = summary_df[c].map('{:,.2f}'.format)
-                    st.dataframe(summary_df.style.map(lambda v: f'color: {"#00C853" if v == "Buy" else "#FFD700"}; font-weight: bold', subset=['TYPE']), use_container_width=True, hide_index=True)
-
-    except Exception as e:
-        st.error(f"SYSTEM FAILURE: {e}")
+    except Exception as e: st.error(f"SYSTEM FAILURE: {e}")
 
 time.sleep(5)
 st.rerun()
