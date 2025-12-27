@@ -12,14 +12,17 @@ SHEET_ID = "1BdkpzNz5lqECpnyc7PgC1BQMc5FeOyqkE_lonF36ANQ"
 
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tactical Monitor Gold v27", page_icon="🛸", layout="wide")
+st.set_page_config(page_title="Tactical Monitor Gold v28", page_icon="🛸", layout="wide")
 
-# --- 1. CSS STYLING (Sci-Fi HUD + Advanced Dynamic Tooltips) ---
+# --- 1. CSS STYLING (Sci-Fi HUD + Mobile Logic v28) ---
 st.markdown("""
 <style>
 .block-container { padding: 0.5rem 0.5rem 3rem 0.5rem; }
 header, footer { visibility: hidden; }
 .stApp { background-color: #050505; color: #e0f7fa; font-family: 'Courier New', Courier, monospace; }
+
+/* Version Indicator */
+.v-tag { position: fixed; top: 10px; right: 10px; font-size: 0.6rem; color: #333; z-index: 9999; }
 
 /* HUD Overview */
 .hud-box {
@@ -35,10 +38,12 @@ header, footer { visibility: hidden; }
 .main-bar-fill-gold { height: 100%; background: #FFD600; box-shadow: 0 0 8px #FFD600; position: absolute; z-index: 2; transition: width 0.5s; }
 .main-bar-marker { position: absolute; width: 2px; height: 24px; top: -3px; background: #fff; z-index: 5; box-shadow: 0 0 8px #fff; }
 
+/* Module Cards */
 .module-card {
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid #222; border-radius: 4px;
     padding: 12px; margin-bottom: 15px;
+    overflow: visible !important; /* สำคัญ: เพื่อให้ popup เด้งออกมาได้ */
 }
 .id-row { display: flex; gap: 5px; margin-bottom: 12px; align-items: center; }
 .square-box {
@@ -52,46 +57,40 @@ header, footer { visibility: hidden; }
 .box-count { background: rgba(255, 255, 255, 0.05); color: #fff; border-color: #555; }
 .text-first-lot { font-size: 0.9rem; color: #888; font-weight: bold; margin-left: 5px; font-family: monospace; }
 
+/* Bar Progress */
 .p-row { display: flex; align-items: center; margin-bottom: 15px; }
 .div-track { flex-grow: 1; height: 18px; background: #1a1a1a; position: relative; margin-right: 15px; border-radius: 2px; }
 .div-center { position: absolute; left: 50%; width: 2px; height: 24px; top: -3px; background: #fff; z-index: 2; box-shadow: 0 0 8px #fff; }
 .div-fill { height: 100%; position: absolute; border-radius: 1px; }
 
+/* VU Meter */
 .vu-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
 .vu-meter { display: flex; gap: 2px; flex-grow: 1; margin-right: 15px; height: 18px; align-items: center; overflow: hidden; }
 .vu-tick { width: 3px; height: 18px; background: #1a1a1a; border-radius: 1px; }
 .vu-tick.active-buy { background: #00e676; box-shadow: 0 0 5px #00e676; }
 .vu-tick.active-gold { background: #FFD700; box-shadow: 0 0 5px #FFD700; }
 
-/* บาร์ราคาแถวที่ 3 (Touch/Hover Optimized) */
+/* Price Scale Row (แถวที่ 3) */
 .scale-row { display: flex; align-items: center; justify-content: space-between; }
 .price-scale { 
-    flex-grow: 1; height: 18px; background: rgba(255,255,255,0.03); 
+    flex-grow: 1; height: 22px; /* เพิ่มความสูงเล็กน้อยให้แตะง่าย */
+    background: rgba(255,255,255,0.03); 
     margin-right: 15px; position: relative; border-bottom: 1px solid #333; 
     cursor: pointer; overflow: visible; 
 }
 
-/* Custom Popup Design */
-.popup-container {
+/* 🔥 POPUP CONTAINER LOGIC 🔥 */
+.popup-v28 {
     display: none; position: absolute; 
     bottom: 35px; left: 50%; transform: translateX(-50%);
-    background: rgba(0, 5, 10, 0.95);
-    padding: 6px 12px; border-radius: 4px;
-    border: 1px solid #333; white-space: nowrap;
-    z-index: 2000; box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
-    font-family: monospace; align-items: center; gap: 10px;
+    background: #000; padding: 8px 14px; border-radius: 4px;
+    border: 1px solid #444; white-space: nowrap;
+    z-index: 9999; box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+    font-family: 'Courier New', monospace; align-items: center; gap: 10px;
 }
-.price-scale:hover .popup-container, .price-scale:active .popup-container {
-    display: flex;
-}
-
-/* Popup Elements */
-.pp-white { color: #ffffff; }
-.pp-blue { color: #00e5ff; font-weight: bold; }
-.pp-gold-box { 
-    color: #FFD700; font-weight: bold; 
-    border: 1px solid #FFD700; padding: 1px 6px; 
-    background: rgba(255, 215, 0, 0.05);
+/* แสดง Popup เมื่อ Hover หรือแตะบาร์ */
+.price-scale:hover .popup-v28, .price-scale:active .popup-v28 {
+    display: flex !important;
 }
 
 .tick-unit { position: absolute; pointer-events: none; }
@@ -102,6 +101,7 @@ header, footer { visibility: hidden; }
 
 .section-title { font-size: 0.9rem; font-weight: 700; color: #E0E0E0; border-left: 4px solid #29B6F6; padding-left: 10px; margin-top: 25px; margin-bottom: 15px; text-transform: uppercase; }
 </style>
+<div class="v-tag">v28.GOLD.ACTIVE</div>
 """, unsafe_allow_html=True)
 
 def load_data():
@@ -195,36 +195,31 @@ else:
                         def get_pct(v): return ((v - s_min) / s_range) * 100
                         order_ticks = "".join([f'<div class="tick-unit {"tick-main" if op in [m["MinP"], m["MaxP"]] else "tick-order"}" style="left:{get_pct(op)}%"></div>' for op in m_orders['Open Price']])
                         
-                        # --- DYNAMIC POPUP HTML ---
-                        min_txt = f"{m['MinP']:,.2f}"
-                        max_txt = f"{m['MaxP']:,.2f}"
-                        be_txt = f"{m['BEP']:,.2f}"
-                        mkt_txt = f"{price:,.2f}"
+                        # --- DYNAMIC POPUP v28 ---
+                        min_v = f"{m['MinP']:,.2f}"
+                        max_v = f"{m['MaxP']:,.2f}"
+                        be_v = f"{m['BEP']:,.2f}"
+                        mkt_v = f"{price:,.2f}"
                         
+                        # แยกส่วนประกอบตามทิศทางราคา
                         if price <= m['BEP']:
-                            popup_html = f"""
-<div class="popup-container">
-<span class="pp-white">| {min_txt}</span>
-<span style="width:20px;"></span>
-<span class="pp-blue">{mkt_txt}</span>
-<span class="pp-white">→</span>
-<span class="pp-gold-box">{be_txt}</span>
-<span style="width:20px;"></span>
-<span class="pp-white">{max_txt} |</span>
-</div>"""
+                            content = f"""
+                            <span style="color:#fff;">| {min_v}</span>
+                            <span style="color:#00e5ff; font-weight:bold; margin:0 10px;">{mkt_v}</span>
+                            <span style="color:#fff;">→</span>
+                            <span style="color:#FFD700; border:1px solid #FFD700; padding:1px 5px; font-weight:bold; margin:0 10px;">{be_v}</span>
+                            <span style="color:#fff;">{max_v} |</span>
+                            """
                         else:
-                            popup_html = f"""
-<div class="popup-container">
-<span class="pp-white">| {min_txt}</span>
-<span style="width:20px;"></span>
-<span class="pp-gold-box">{be_txt}</span>
-<span class="pp-white">←</span>
-<span class="pp-blue">{mkt_txt}</span>
-<span style="width:20px;"></span>
-<span class="pp-white">{max_txt} |</span>
-</div>"""
+                            content = f"""
+                            <span style="color:#fff;">| {min_v}</span>
+                            <span style="color:#FFD700; border:1px solid #FFD700; padding:1px 5px; font-weight:bold; margin:0 10px;">{be_v}</span>
+                            <span style="color:#fff;">←</span>
+                            <span style="color:#00e5ff; font-weight:bold; margin:0 10px;">{mkt_v}</span>
+                            <span style="color:#fff;">{max_v} |</span>
+                            """
 
-                        dist_val = f"✅ {abs(m['BEP']-price):,.2f}" if (m['BEP']-price if m['Type']=='Buy' else price-m['BEP']) <= 0 else f"⚠️ {abs(m['BEP']-price):,.2f}"
+                        dist_v = f"✅ {abs(m['BEP']-price):,.2f}" if (m['BEP']-price if m['Type']=='Buy' else price-m['BEP']) <= 0 else f"⚠️ {abs(m['BEP']-price):,.2f}"
                         d_icon = '»«' if abs(m['BEP']-price) < abs(m['BEP']-prev_p) else ('«»' if abs(m['BEP']-price) > abs(m['BEP']-prev_p) else '↔')
                         d_col = "#00e676" if d_icon == '»«' else ("#FFD700" if d_icon == '«»' else "#546e7a")
 
@@ -242,12 +237,12 @@ else:
 </div>
 <div class="scale-row">
 <div class="price-scale">
-{popup_html}
+<div class="popup-v28">{content}</div>
 {order_ticks}
 <div class="tick-unit tick-be" style="left:{get_pct(m['BEP'])}%"></div>
 <div class="tick-unit tick-current" style="left:{get_pct(price)}%"></div>
 </div>
-<div class="data-text" style="color:{d_col}"><span style="font-size:1.1rem; vertical-align:middle;">{d_icon}</span> <span style="color:{'#00e676' if (m['BEP']-price if m['Type']=='Buy' else price-m['BEP']) <= 0 else '#FFD700'}">{dist_val}</span></div>
+<div class="data-text" style="color:{d_col}"><span style="font-size:1.1rem; vertical-align:middle;">{d_icon}</span> <span style="color:{'#00e676' if (m['BEP']-price if m['Type']=='Buy' else price-m['BEP']) <= 0 else '#FFD700'}">{dist_v}</span></div>
 </div>
 </div>"""
                         st.markdown(m_html, unsafe_allow_html=True)
@@ -260,6 +255,14 @@ else:
                     fig_p.add_trace(go.Scatter(x=magic_stats['Magic'].astype(str), y=magic_stats['BEP'], mode='markers', marker=dict(symbol='line-ew', size=40, line=dict(width=4, color="#FFD600")), hovertemplate="BE: %{y:,.2f}<extra></extra>"))
                     fig_p.update_layout(xaxis=dict(showticklabels=False, type='category', gridcolor='#333'), yaxis=dict(gridcolor='#222'), margin=dict(l=40, r=20, t=40, b=20), height=350, showlegend=False, paper_bgcolor='#050505', plot_bgcolor='#050505')
                     st.plotly_chart(fig_p, use_container_width=True, config={'displayModeBar': False})
+
+                    # --- PART 4: SUMMARY TABLE ---
+                    st.markdown('<div class="hud-label" style="margin-top:20px; margin-bottom:15px;">MISSION DATA LOG SUMMARY</div>', unsafe_allow_html=True)
+                    summary_df = magic_stats[['Magic', 'Type', 'Count', 'Lots', 'BEP', 'Profit']].copy()
+                    summary_df['DIST'] = summary_df.apply(lambda row: (f"✅ {abs(row['BEP']-price):,.2f}" if (row['BEP']-price if row['Type']=='Buy' else price-row['BEP']) <= 0 else f"⚠️ {abs(row['BEP']-price):,.2f}"), axis=1)
+                    summary_df.columns = ['MAGIC', 'TYPE', 'ORDERS', 'LOTS', 'BE_PRICE', 'PROFIT', 'DIST']
+                    for c in ['LOTS', 'BE_PRICE', 'PROFIT']: summary_df[c] = summary_df[c].map('{:,.2f}'.format)
+                    st.dataframe(summary_df.style.map(lambda v: f'color: {"#00C853" if v == "Buy" else "#FFD700"}; font-weight: bold', subset=['TYPE']), use_container_width=True, hide_index=True)
 
     except Exception as e: st.error(f"SYSTEM FAILURE: {e}")
 
